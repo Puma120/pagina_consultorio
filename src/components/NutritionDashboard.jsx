@@ -16,7 +16,7 @@ const NutritionDashboard = () => {
       shortDesc: "Apnea del Sueño",
       icon: Moon,
       gradient: "from-blue-500 via-blue-600 to-indigo-600",
-      hoverGradient: "from-blue-600 via-blue-700 to-indigo-700",
+      hoverGradient: "from-blue-400 via-blue-500 to-indigo-500",
       shadowColor: "shadow-blue-500/30",
       borderColor: "border-blue-200",
       bgColor: "bg-blue-50",
@@ -47,7 +47,7 @@ const NutritionDashboard = () => {
       shortDesc: "Salud Mental",
       icon: Brain,
       gradient: "from-purple-500 via-violet-600 to-purple-600",
-      hoverGradient: "from-purple-600 via-violet-700 to-purple-700",
+      hoverGradient: "from-purple-400 via-violet-500 to-purple-500",
       shadowColor: "shadow-purple-500/30",
       borderColor: "border-purple-200",
       bgColor: "bg-purple-50",
@@ -79,7 +79,7 @@ const NutritionDashboard = () => {
       shortDesc: "Comportamiento Alimentario",
       icon: Utensils,
       gradient: "from-green-500 via-emerald-600 to-teal-600",
-      hoverGradient: "from-green-600 via-emerald-700 to-teal-700",
+      hoverGradient: "from-green-400 via-emerald-500 to-teal-500",
       shadowColor: "shadow-green-500/30",
       borderColor: "border-green-200",
       bgColor: "bg-green-50",
@@ -204,11 +204,15 @@ const NutritionDashboard = () => {
                   {/* CTA Button */}
                   <button
                     onClick={() => setSelected(q.id)}
-                    className={`w-full bg-gradient-to-r ${q.gradient} hover:bg-gradient-to-r hover:${q.hoverGradient} text-white font-bold py-4 px-8 rounded-2xl transition-all duration-500 transform hover:scale-105 shadow-xl ${q.shadowColor} hover:shadow-2xl flex items-center justify-center gap-3 group relative overflow-hidden`}
+                    className={`w-full bg-gradient-to-r ${q.gradient} hover:bg-gradient-to-r hover:${q.hoverGradient} text-white font-bold py-4 px-8 rounded-2xl transition-all duration-500 transform hover:scale-105 shadow-xl ${q.shadowColor} hover:shadow-2xl flex items-center justify-center gap-3 group relative overflow-hidden hover:brightness-110 hover:saturate-110`}
+                    onMouseEnter={() => setHoveredCard(q.id)}
+                    onMouseLeave={() => setHoveredCard(null)}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-20 transform -translate-x-full group-hover:translate-x-full transition-all duration-1000"></div>
-                    <span className="relative z-10">Iniciar Evaluación</span>
-                    <ArrowRight className="relative z-10 w-5 h-5 transition-transform group-hover:translate-x-2" />
+                    {/* Efecto de brillo difuminado en hover */}
+                    <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-500 blur-sm"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-30 transform -translate-x-full group-hover:translate-x-full transition-all duration-1000"></div>
+                    <span className="relative z-10 transition-all duration-300 group-hover:drop-shadow-lg">Iniciar Evaluación</span>
+                    <ArrowRight className="relative z-10 w-5 h-5 transition-transform group-hover:translate-x-2 group-hover:drop-shadow-lg" />
                   </button>
                 </div>
               </div>

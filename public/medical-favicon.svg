@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Fondo circular azul médico -->
+  <circle cx="50" cy="50" r="48" fill="#2563eb" stroke="#1d4ed8" stroke-width="2"/>
+  
+  <!-- Cruz médica blanca -->
+  <rect x="45" y="25" width="10" height="50" fill="white" rx="2"/>
+  <rect x="25" y="45" width="50" height="10" fill="white" rx="2"/>
+  
+  <!-- Estetoscopio simplificado -->
+  <path d="M30 35 Q35 30 40 35 Q45 40 40 45 Q35 50 30 45 Q25 40 30 35" fill="none" stroke="white" stroke-width="2" opacity="0.8"/>
+  <circle cx="32" cy="40" r="2" fill="white" opacity="0.8"/>
+  
+  <!-- Sombra sutil en la cruz -->
+  <rect x="46" y="26" width="8" height="48" fill="rgba(255,255,255,0.9)" rx="2"/>
+  <rect x="26" y="46" width="48" height="8" fill="rgba(255,255,255,0.9)" rx="2"/>
+</svg>
