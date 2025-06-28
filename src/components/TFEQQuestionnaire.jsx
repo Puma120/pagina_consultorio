@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  CheckCircle, AlertCircle, Download, ArrowLeft, Utensils, Scale, Heart, Brain, User, Home
+  CheckCircle, AlertCircle, Download, ArrowLeft, Utensils, Scale, Heart, Brain, User, Home, Mail
 } from 'lucide-react';
+import { sendEmailWithAttachment, generateCSVString, createCSVAttachment } from '../utils/emailService';
 
 const questions = [
   {
@@ -221,6 +222,11 @@ const TFEQQuestionnaire = () => {
   const [accessibilityMode, setAccessibilityMode] = useState(false);
   const [focusedOption, setFocusedOption] = useState(null); // Para feedback táctil
   const [lastTouchedOption, setLastTouchedOption] = useState(null); // Para doble toque
+  
+  // Estados para envío de correo
+  const [isEmailSending, setIsEmailSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  
   const synthRef = useRef(window.speechSynthesis);
   const utteranceRef = useRef(null);
   const touchTimeout = useRef(null);
@@ -379,6 +385,103 @@ const TFEQQuestionnaire = () => {
     document.body.removeChild(link);
   };
 
+  // Función para enviar por correo directamente
+  const sendEmail = async () => {
+    setIsEmailSending(true);
+    
+    try {
+      const fecha = new Date().toISOString().slice(0, 10);
+      const { cognitiveScore, uncontrolledScore, emotionalScore } = calculateScores();
+      
+      // Preparar datos para el CSV
+      const csvData = {
+        patient_name: patientInfo.name,
+        patient_age: patientInfo.age,
+        patient_gender: patientInfo.gender,
+        ...answers,
+        cognitive_restraint: cognitiveScore,
+        uncontrolled_eating: uncontrolledScore,
+        emotional_eating: emotionalScore,
+        date: fecha,
+      };
+
+      // Generar CSV string y archivo
+      const csvString = generateCSVString(csvData);
+      const csvFile = createCSVAttachment(csvString, `${patientInfo.name}_${fecha}_tfeq.csv`);
+
+      // Preparar parámetros para EmailJS
+      const templateParams = {
+        patient_name: patientInfo.name,
+        patient_age: patientInfo.age,
+        patient_gender: patientInfo.gender,
+        questionnaire_type: 'TFEQ-R18',
+        date: fecha,
+        cognitive_restraint_score: cognitiveScore.toFixed(2),
+        cognitive_restraint_description: getScoreDescription(cognitiveScore, 'cognitive'),
+        uncontrolled_eating_score: uncontrolledScore.toFixed(2),
+        uncontrolled_eating_description: getScoreDescription(uncontrolledScore, 'uncontrolled'),
+        emotional_eating_score: emotionalScore.toFixed(2),
+        emotional_eating_description: getScoreDescription(emotionalScore, 'emotional'),
+        message: 'Resultados del cuestionario TFEQ-R18 completado por el paciente.',
+        csv_data: csvString, // Mantener CSV como texto de respaldo
+        // Agregar respuestas individuales para mostrar en la plantilla
+        q1: answers.q1 || 1,
+        q2: answers.q2 || 1,
+        q3: answers.q3 || 1,
+        q4: answers.q4 || 1,
+        q5: answers.q5 || 1,
+        q6: answers.q6 || 1,
+        q7: answers.q7 || 1,
+        q8: answers.q8 || 1,
+        q9: answers.q9 || 1,
+        q10: answers.q10 || 1,
+        q11: answers.q11 || 1,
+        q12: answers.q12 || 1,
+        q13: answers.q13 || 1,
+        q14: answers.q14 || 1,
+        q15: answers.q15 || 1,
+        q16: answers.q16 || 1,
+        q17: answers.q17 || 1,
+        q18: answers.q18 || 1,
+        if_had: false,
+        if_stopbang: false,
+        if_tfeq: true
+      };
+
+      const result = await sendEmailWithAttachment(templateParams);
+      
+      if (result.success) {
+        setEmailSent(true);
+        alert('¡Correo enviado exitosamente al médico con todos los datos del cuestionario!');
+        setTimeout(() => {
+          setEmailSent(false);
+        }, 3000);
+      } else {
+        alert('Error al enviar el correo. Por favor intente nuevamente.');
+        console.error('Error:', result.error);
+      }
+    } catch (error) {
+      alert('Error al enviar el correo. Por favor intente nuevamente.');
+      console.error('Error:', error);
+    } finally {
+      setIsEmailSending(false);
+    }
+  };
+
+  // Función auxiliar para descripciones de puntuación
+  const getScoreDescription = (score, type) => {
+    switch(type) {
+      case 'cognitive':
+        return score >= 3.0 ? 'Alto control cognitivo' : score >= 2.0 ? 'Control cognitivo moderado' : 'Bajo control cognitivo';
+      case 'uncontrolled':
+        return score >= 3.0 ? 'Alta alimentación descontrolada' : score >= 2.0 ? 'Alimentación descontrolada moderada' : 'Baja alimentación descontrolada';
+      case 'emotional':
+        return score >= 3.0 ? 'Alta alimentación emocional' : score >= 2.0 ? 'Alimentación emocional moderada' : 'Baja alimentación emocional';
+      default:
+        return '';
+    }
+  };
+
   const goBack = () => current > 0 && setCurrent(current - 1);
   
   const restart = () => {
@@ -428,21 +531,23 @@ const TFEQQuestionnaire = () => {
                   <p className="text-base text-gray-500">Inventario de Alimentación de Tres Factores</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-col sm:flex-row w-full sm:w-auto mt-4 sm:mt-0">
                 <button
                   onClick={() => setAccessibilityMode((prev) => !prev)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-semibold text-lg shadow ${accessibilityMode ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                  className={`flex items-center justify-center gap-2 w-full sm:w-auto sm:px-4 sm:py-2 px-2 py-2 rounded-xl transition-all duration-300 font-semibold sm:text-lg text-base shadow ${accessibilityMode ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                   title="Activar/desactivar accesibilidad"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.07-6.93l-.71.71M6.34 17.66l-.71.71m12.02 0l-.71-.71M6.34 6.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
-                  {accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.07-6.93l-.71.71M6.34 17.66l-.71.71m12.02 0l-.71-.71M6.34 6.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+                  <span className="hidden sm:inline">{accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}</span>
+                  <span className="inline sm:hidden text-xs">{accessibilityMode ? 'ON' : 'OFF'}</span>
                 </button>
                 <button
                   onClick={goBackToHome}
-                  className="flex items-center gap-3 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all duration-300 font-semibold text-lg shadow"
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto sm:px-6 sm:py-3 px-2 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all duration-300 font-semibold sm:text-lg text-base shadow"
                 >
-                  <Home className="w-6 h-6" />
-                  Volver al Inicio
+                  <Home className="w-7 h-7 sm:w-6 sm:h-6" />
+                  <span className="hidden sm:inline">Volver al Inicio</span>
+                  <span className="inline sm:hidden text-xs">Inicio</span>
                 </button>
               </div>
             </div>
@@ -545,21 +650,23 @@ const TFEQQuestionnaire = () => {
                   <p className="text-base text-gray-500">Inventario de Alimentación de Tres Factores</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-col sm:flex-row w-full sm:w-auto mt-4 sm:mt-0">
                 <button
                   onClick={() => setAccessibilityMode((prev) => !prev)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-semibold text-lg shadow ${accessibilityMode ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                  className={`flex items-center justify-center gap-2 w-full sm:w-auto sm:px-4 sm:py-2 px-2 py-2 rounded-xl transition-all duration-300 font-semibold sm:text-lg text-base shadow ${accessibilityMode ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                   title="Activar/desactivar accesibilidad"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.07-6.93l-.71.71M6.34 17.66l-.71.71m12.02 0l-.71-.71M6.34 6.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
-                  {accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.07-6.93l-.71.71M6.34 17.66l-.71.71m12.02 0l-.71-.71M6.34 6.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+                  <span className="hidden sm:inline">{accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}</span>
+                  <span className="inline sm:hidden text-xs">{accessibilityMode ? 'ON' : 'OFF'}</span>
                 </button>
                 <button
                   onClick={goBackToHome}
-                  className="flex items-center gap-3 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all duration-300 font-semibold text-lg shadow"
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto sm:px-6 sm:py-3 px-2 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all duration-300 font-semibold sm:text-lg text-base shadow"
                 >
-                  <Home className="w-6 h-6" />
-                  Volver al Inicio
+                  <Home className="w-7 h-7 sm:w-6 sm:h-6" />
+                  <span className="hidden sm:inline">Volver al Inicio</span>
+                  <span className="inline sm:hidden text-xs">Inicio</span>
                 </button>
               </div>
             </div>
@@ -703,23 +810,40 @@ const TFEQQuestionnaire = () => {
                 </div>
               </div>
 
-              <div className="flex gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <button
                   onClick={downloadCSV}
-                  className="flex-1 bg-green-600 text-white px-6 py-4 rounded-2xl hover:bg-green-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  className="bg-green-600 text-white px-6 py-4 rounded-2xl hover:bg-green-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
                 >
                   <Download className="w-5 h-5" />
                   Descargar Resultados
                 </button>
                 <button
+                  onClick={sendEmail}
+                  className="bg-purple-600 text-white px-6 py-4 rounded-2xl hover:bg-purple-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  disabled={isEmailSending}
+                >
+                  {isEmailSending ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-5 h-5" />
+                      Enviar al Médico
+                    </>
+                  )}
+                </button>
+                <button
                   onClick={restart}
-                  className="flex-1 bg-gray-600 text-white px-6 py-4 rounded-2xl hover:bg-gray-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  className="bg-gray-600 text-white px-6 py-4 rounded-2xl hover:bg-gray-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
                 >
                   Reiniciar Cuestionario
                 </button>
                 <button
                   onClick={goBackToHome}
-                  className="flex-1 bg-blue-600 text-white px-6 py-4 rounded-2xl hover:bg-blue-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  className="bg-blue-600 text-white px-6 py-4 rounded-2xl hover:bg-blue-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
                 >
                   <Home className="w-5 h-5" />
                   Volver al Inicio
@@ -766,21 +890,23 @@ const TFEQQuestionnaire = () => {
                 <p className="text-base text-gray-500">Inventario de Alimentación de Tres Factores</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-col sm:flex-row w-full sm:w-auto mt-4 sm:mt-0">
               <button
                 onClick={() => setAccessibilityMode((prev) => !prev)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-semibold text-lg shadow ${accessibilityMode ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`flex items-center justify-center gap-2 w-full sm:w-auto sm:px-4 sm:py-2 px-2 py-2 rounded-xl transition-all duration-300 font-semibold sm:text-lg text-base shadow ${accessibilityMode ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                 title="Activar/desactivar accesibilidad"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.07-6.93l-.71.71M6.34 17.66l-.71.71m12.02 0l-.71-.71M6.34 6.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
-                {accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.07-6.93l-.71.71M6.34 17.66l-.71.71m12.02 0l-.71-.71M6.34 6.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+                <span className="hidden sm:inline">{accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}</span>
+                <span className="inline sm:hidden text-xs">{accessibilityMode ? 'ON' : 'OFF'}</span>
               </button>
               <button
                 onClick={goBackToHome}
-                className="flex items-center gap-3 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all duration-300 font-semibold text-lg shadow"
+                className="flex items-center justify-center gap-2 w-full sm:w-auto sm:px-6 sm:py-3 px-2 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all duration-300 font-semibold sm:text-lg text-base shadow"
               >
-                <Home className="w-6 h-6" />
-                Volver al Inicio
+                <Home className="w-7 h-7 sm:w-6 sm:h-6" />
+                <span className="hidden sm:inline">Volver al Inicio</span>
+                <span className="inline sm:hidden text-xs">Inicio</span>
               </button>
             </div>
           </div>

@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resultados de Cuestionario - {{questionnaire_type}}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8fafc;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #6366f1;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #1e293b;
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .header p {
+            color: #64748b;
+            margin: 10px 0 0 0;
+            font-size: 16px;
+        }
+        .patient-info {
+            background: #f1f5f9;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        .patient-info h2 {
+            color: #475569;
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #374151;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        .info-value {
+            color: #1f2937;
+            font-size: 16px;
+        }
+        .results-section {
+            margin-bottom: 25px;
+        }
+        .results-section h2 {
+            color: #1e293b;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            border-left: 4px solid #6366f1;
+            padding-left: 15px;
+        }
+        .score-card {
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.2s;
+        }
+        .score-card.low {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+        .score-card.moderate {
+            background: #fffbeb;
+            border-color: #fed7aa;
+        }
+        .score-card.high {
+            background: #fef2f2;
+            border-color: #fecaca;
+        }
+        .score-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .score-title {
+            font-weight: 600;
+            font-size: 18px;
+            color: #1f2937;
+        }
+        .score-value {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .score-value.low { color: #059669; }
+        .score-value.moderate { color: #d97706; }
+        .score-value.high { color: #dc2626; }
+        .score-level {
+            font-weight: 600;
+            margin-top: 5px;
+        }
+        .score-level.low { color: #059669; }
+        .score-level.moderate { color: #d97706; }
+        .score-level.high { color: #dc2626; }
+        .score-description {
+            color: #6b7280;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        .interpretation {
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        .interpretation h3 {
+            color: #3730a3;
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .interpretation-content {
+            font-size: 14px;
+            color: #4338ca;
+            line-height: 1.5;
+        }
+        .footer {
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 20px;
+            margin-top: 30px;
+        }
+        .footer p {
+            color: #6b7280;
+            font-size: 12px;
+            margin: 5px 0;
+        }
+        .disclaimer {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .disclaimer p {
+            color: #475569;
+            font-size: 13px;
+            margin: 0;
+        }
+        @media (max-width: 600px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+            .score-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Resultados del Cuestionario {{questionnaire_type}}</h1>
+            <p>Evaluación completada el {{date}}</p>
+        </div>
+
+        <div class="patient-info">
+            <h2>Información del Paciente</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Nombre:</span>
+                    <span class="info-value">{{patient_name}}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Edad:</span>
+                    <span class="info-value">{{patient_age}} años</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Género:</span>
+                    <span class="info-value">{{patient_gender}}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Fecha:</span>
+                    <span class="info-value">{{date}}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección específica para HAD -->
+        {{#if_had}}
+        <div class="results-section">
+            <h2>Resultados HAD (Escala Hospitalaria de Ansiedad y Depresión)</h2>
+            
+            <div class="score-card {{anxiety_level_class}}">
+                <div class="score-header">
+                    <span class="score-title">Ansiedad (HAD-A)</span>
+                    <span class="score-value {{anxiety_level_class}}">{{anxiety_score}}/21</span>
+                </div>
+                <div class="score-level {{anxiety_level_class}}">Nivel: {{anxiety_level}}</div>
+                <div class="score-description">{{anxiety_description}}</div>
+            </div>
+
+            <div class="score-card {{depression_level_class}}">
+                <div class="score-header">
+                    <span class="score-title">Depresión (HAD-D)</span>
+                    <span class="score-value {{depression_level_class}}">{{depression_score}}/21</span>
+                </div>
+                <div class="score-level {{depression_level_class}}">Nivel: {{depression_level}}</div>
+                <div class="score-description">{{depression_description}}</div>
+            </div>
+        </div>
+
+        <div class="interpretation">
+            <h3>Interpretación de Resultados HAD</h3>
+            <div class="interpretation-content">
+                <p><strong>Ansiedad (reactivos impares 1,3,5,7,9,11,13):</strong></p>
+                <p>• Leve: 8 puntos o menos • Moderado: 9-11 puntos • Alto: >11 puntos</p>
+                <br>
+                <p><strong>Depresión (reactivos pares 2,4,6,8,10,12,14):</strong></p>
+                <p>• Leve: 8 puntos o menos • Moderado: 9-11 puntos • Alto: >11 puntos</p>
+            </div>
+        </div>
+        {{/if_had}}
+
+        <!-- Sección específica para STOP-Bang -->
+        {{#if_stopbang}}
+        <div class="results-section">
+            <h2>Resultados STOP-Bang (Evaluación de Apnea del Sueño)</h2>
+            
+            <div class="score-card {{risk_level_class}}">
+                <div class="score-header">
+                    <span class="score-title">Puntuación Total</span>
+                    <span class="score-value {{risk_level_class}}">{{total_score}}/8</span>
+                </div>
+                <div class="score-level {{risk_level_class}}">Riesgo: {{risk_level}}</div>
+                <div class="score-description">{{risk_description}}</div>
+            </div>
+        </div>
+
+        <div class="interpretation">
+            <h3>Interpretación de Resultados STOP-Bang</h3>
+            <div class="interpretation-content">
+                <p>• <strong>Bajo riesgo:</strong> 0-2 puntos</p>
+                <p>• <strong>Riesgo intermedio:</strong> 3-4 puntos</p>
+                <p>• <strong>Alto riesgo:</strong> 5-8 puntos</p>
+            </div>
+        </div>
+        {{/if_stopbang}}
+
+        <!-- Sección específica para TFEQ -->
+        {{#if_tfeq}}
+        <div class="results-section">
+            <h2>Resultados TFEQ-R18 (Comportamiento Alimentario)</h2>
+            
+            <div class="score-card">
+                <div class="score-header">
+                    <span class="score-title">Restricción Cognitiva</span>
+                    <span class="score-value">{{cognitive_restraint_score}}</span>
+                </div>
+                <div class="score-description">{{cognitive_restraint_description}}</div>
+            </div>
+
+            <div class="score-card">
+                <div class="score-header">
+                    <span class="score-title">Alimentación Descontrolada</span>
+                    <span class="score-value">{{uncontrolled_eating_score}}</span>
+                </div>
+                <div class="score-description">{{uncontrolled_eating_description}}</div>
+            </div>
+
+            <div class="score-card">
+                <div class="score-header">
+                    <span class="score-title">Alimentación Emocional</span>
+                    <span class="score-value">{{emotional_eating_score}}</span>
+                </div>
+                <div class="score-description">{{emotional_eating_description}}</div>
+            </div>
+        </div>
+        {{/if_tfeq}}
+
+        <div class="disclaimer">
+            <p><strong>Nota importante:</strong> Estos resultados son únicamente para fines informativos y de evaluación inicial. Consulte siempre con un profesional de la salud calificado para obtener un diagnóstico preciso y recomendaciones de tratamiento personalizadas.</p>
+        </div>
+
+        <!-- Información sobre adjuntos -->
+        {{#attachment_name}}
+        <div class="results-section">
+            <h2>📎 Archivo de Datos</h2>
+            <div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+                <p style="color: #3730a3; margin: 0 0 10px 0; font-weight: 600;">Archivo CSV: {{attachment_name}}</p>
+                <p style="color: #4338ca; font-size: 14px; margin: 0;">Los datos están disponibles en el archivo adjunto y también en formato legible a continuación.</p>
+            </div>
+        </div>
+        {{/attachment_name}}
+
+        <!-- Datos detallados del cuestionario en formato legible -->
+        <div class="results-section">
+            <h2>📋 Datos Completos del Cuestionario</h2>
+            
+            <!-- Información del paciente en formato de tabla -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                <h3 style="color: #374151; margin: 0 0 15px 0; font-size: 16px; font-weight: 600;">👤 Información del Paciente</h3>
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px 0; font-weight: 600; color: #374151; width: 30%;">Nombre:</td>
+                        <td style="padding: 8px 0; color: #1f2937;">{{patient_name}}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px 0; font-weight: 600; color: #374151;">Edad:</td>
+                        <td style="padding: 8px 0; color: #1f2937;">{{patient_age}} años</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px 0; font-weight: 600; color: #374151;">Género:</td>
+                        <td style="padding: 8px 0; color: #1f2937;">{{patient_gender}}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; font-weight: 600; color: #374151;">Fecha de evaluación:</td>
+                        <td style="padding: 8px 0; color: #1f2937;">{{date}}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Respuestas del cuestionario HAD -->
+            {{#if_had}}
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                <h3 style="color: #374151; margin: 0 0 15px 0; font-size: 16px; font-weight: 600;">📝 Respuestas del Cuestionario HAD</h3>
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                    <thead>
+                        <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                            <th style="padding: 10px; text-align: left; font-weight: 600; color: #374151;">Pregunta</th>
+                            <th style="padding: 10px; text-align: center; font-weight: 600; color: #374151; width: 80px;">Puntos</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">1. Me siento tenso(a) o nervioso(a)</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #059669;">{{q1}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">2. Sigo disfrutando de las cosas</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #059669;">{{q2}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">3. Siento una especie de miedo</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #059669;">{{q3}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">4. Puedo reírme y ver el lado bueno</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #059669;">{{q4}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">5. Tengo la cabeza llena de preocupaciones</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #059669;">{{q5}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">6. Me siento alegre</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #059669;">{{q6}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">7. Puedo estar sentado tranquilamente</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #059669;">{{q7}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">8. Me siento lento y torpe</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #059669;">{{q8}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">9. Tengo una sensación extraña en el estómago</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #059669;">{{q9}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">10. He perdido el interés en mi aspecto personal</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #059669;">{{q10}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">11. Me siento inquieto y no puedo parar de moverme</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #059669;">{{q11}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">12. Espero las cosas con ilusión</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #059669;">{{q12}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">13. Tengo ataques súbitos de pánico</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #059669;">{{q13}}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 10px; color: #1f2937;">14. Puedo disfrutar de un buen libro o programa</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #059669;">{{q14}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div style="margin-top: 15px; padding: 15px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px;">
+                    <p style="margin: 0; font-size: 14px; color: #374151;">
+                        <strong>📊 Puntuaciones Calculadas:</strong><br>
+                        • Ansiedad (HAD-A): {{anxiety_score}}/21 - {{anxiety_level}}<br>
+                        • Depresión (HAD-D): {{depression_score}}/21 - {{depression_level}}
+                    </p>
+                </div>
+            </div>
+            {{/if_had}}
+
+            <!-- Respuestas del cuestionario STOP-Bang -->
+            {{#if_stopbang}}
+            <div style="background: #fffbeb; border: 1px solid #fed7aa; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                <h3 style="color: #374151; margin: 0 0 15px 0; font-size: 16px; font-weight: 600;">📝 Respuestas del Cuestionario STOP-Bang</h3>
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                    <thead>
+                        <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                            <th style="padding: 10px; text-align: left; font-weight: 600; color: #374151;">Pregunta</th>
+                            <th style="padding: 10px; text-align: center; font-weight: 600; color: #374151; width: 100px;">Respuesta</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">S - ¿Ronca fuerte?</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #d97706;">{{snoring}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">T - ¿Se siente cansado durante el día?</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #d97706;">{{tired}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">O - ¿Alguien ha notado que deje de respirar?</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #d97706;">{{observed}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">P - ¿Tiene presión arterial alta?</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #d97706;">{{pressure}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">B - IMC mayor a 35 kg/m²</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #d97706;">{{bmi}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">A - Edad mayor a 50 años</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #d97706;">{{age}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 8px 10px; color: #1f2937;">N - Cuello mayor a 40cm (♂) o 35cm (♀)</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #d97706;">{{neck}}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 10px; color: #1f2937;">G - Género masculino</td>
+                            <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #d97706;">{{gender}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div style="margin-top: 15px; padding: 15px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px;">
+                    <p style="margin: 0; font-size: 14px; color: #374151;">
+                        <strong>📊 Puntuación Total:</strong> {{total_score}}/8 - {{risk_level}}
+                    </p>
+                </div>
+            </div>
+            {{/if_stopbang}}
+
+            <!-- Respuestas del cuestionario TFEQ -->
+            {{#if_tfeq}}
+            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                <h3 style="color: #374151; margin: 0 0 15px 0; font-size: 16px; font-weight: 600;">📝 Respuestas del Cuestionario TFEQ-R18</h3>
+                <div style="margin-bottom: 15px; padding: 15px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px;">
+                    <p style="margin: 0; font-size: 14px; color: #374151;">
+                        <strong>📊 Puntuaciones por Dimensión:</strong><br>
+                        • Restricción Cognitiva: {{cognitive_restraint_score}}<br>
+                        • Alimentación Descontrolada: {{uncontrolled_eating_score}}<br>
+                        • Alimentación Emocional: {{emotional_eating_score}}
+                    </p>
+                </div>
+                
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <thead>
+                        <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                            <th style="padding: 8px; text-align: left; font-weight: 600; color: #374151;">Pregunta</th>
+                            <th style="padding: 8px; text-align: center; font-weight: 600; color: #374151; width: 80px;">Respuesta</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">1. Cuando huelo un bistec chisporroteando...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q1}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">2. Deliberadamente tomo pequeñas porciones...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q2}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">3. Cuando me siento ansioso tiendo a comer...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q3}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">4. A veces cuando empiezo a comer no puedo parar...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q4}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">5. Estar con alguien que está comiendo me hace...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q5}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">6. Cuando me siento azul como más de lo normal...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q6}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">7. Mastico deliberadamente lento para comer menos...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q7}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">8. A veces me siento tan hambriento que no puedo parar...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q8}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">9. Me viene ganas de comer cuando estoy irritable...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q9}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">10. Cuando veo algo que se ve muy delicioso...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q10}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">11. Cuando me siento deprimido como más...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q11}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">12. Conscientemente me contengo durante las comidas...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q12}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">13. Como más cuando estoy preocupado...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q13}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">14. Cuando veo comida real me siento con ganas...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q14}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">15. Cuando me siento solo como más...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q15}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">16. Conscientemente como menos para no subir de peso...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q16}}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">17. Como más cuando me siento tenso...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q17}}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 6px 8px; color: #1f2937; font-size: 12px;">18. Empiezo a comer cuando me siento ansioso...</td>
+                            <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #dc2626;">{{q18}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            {{/if_tfeq}}
+
+            <!-- Nota sobre los datos -->
+            <div style="background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; padding: 15px; margin-top: 20px;">
+                <p style="margin: 0; font-size: 13px; color: #6b7280;">
+                    <strong>📌 Nota para el profesional:</strong> Los datos mostrados arriba representan las respuestas exactas del paciente y las puntuaciones calculadas automáticamente según los baremos estándar de cada cuestionario. Esta información puede utilizarse para análisis clínico y seguimiento del paciente.
+                </p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Este reporte fue generado automáticamente el {{date}}</p>
+            <p>Sistema de Evaluación Médica - Panel de Cuestionarios</p>
+        </div>
+    </div>
+</body>
+</html>

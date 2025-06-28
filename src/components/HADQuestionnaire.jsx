@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle, AlertCircle, Download, ArrowLeft, Brain, Heart, Moon, Smile, Frown, Zap, Clock, User, Home } from 'lucide-react';
+import { CheckCircle, AlertCircle, Download, ArrowLeft, Brain, Heart, Moon, Smile, Frown, Zap, Clock, User, Home, Mail } from 'lucide-react';
+import { sendEmailWithAttachment, generateCSVString, createCSVAttachment } from '../utils/emailService';
 
 const questions = [
   {
@@ -244,6 +245,10 @@ const HADQuestionnaire = () => {
   const [lastTouchedOption, setLastTouchedOption] = useState(null); // Para doble toque
   const touchTimeout = useRef(null);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // Estados para envío de correo
+  const [isEmailSending, setIsEmailSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   const synthRef = useRef(window.speechSynthesis);
   const utteranceRef = useRef(null);
@@ -403,6 +408,100 @@ const HADQuestionnaire = () => {
     document.body.removeChild(link);
   };
 
+  // Función para enviar por correo directamente
+  const sendEmail = async () => {
+    setIsEmailSending(true);
+    
+    try {
+      const fecha = new Date().toISOString().slice(0, 10);
+      const { anxietyScore, depressionScore } = calculateScores();
+      const anxietyData = getScoreLevel(anxietyScore, 'ansiedad');
+      const depressionData = getScoreLevel(depressionScore, 'depresión');
+      
+      // Preparar datos para el CSV
+      const csvData = {
+        patient_name: patientInfo.name,
+        patient_age: patientInfo.age,
+        patient_gender: patientInfo.gender,
+        ...answers,
+        anxiety_score: anxietyScore,
+        anxiety_level: anxietyData.level,
+        depression_score: depressionScore,
+        depression_level: depressionData.level,
+        date: fecha,
+      };
+
+      // Generar CSV string y archivo
+      const csvString = generateCSVString(csvData);
+      const csvFile = createCSVAttachment(csvString, `${patientInfo.name}_${fecha}_had.csv`);
+
+      // Preparar parámetros para EmailJS
+      const templateParams = {
+        patient_name: patientInfo.name,
+        patient_age: patientInfo.age,
+        patient_gender: patientInfo.gender,
+        questionnaire_type: 'HAD',
+        date: fecha,
+        anxiety_score: anxietyScore,
+        anxiety_level: anxietyData.level,
+        anxiety_description: anxietyData.description,
+        anxiety_level_class: anxietyData.color === 'red' ? 'high' : anxietyData.color === 'orange' ? 'moderate' : 'low',
+        depression_score: depressionScore,
+        depression_level: depressionData.level,
+        depression_description: depressionData.description,
+        depression_level_class: depressionData.color === 'red' ? 'high' : depressionData.color === 'orange' ? 'moderate' : 'low',
+        message: 'Resultados del cuestionario HAD completado por el paciente.',
+        csv_data: csvString, // Mantener CSV como texto de respaldo
+        // Agregar respuestas individuales para mostrar en la plantilla
+        q1: answers[questions[0]?.id] || 0,  // had_anxiety_01_tension_nervios
+        q2: answers[questions[1]?.id] || 0,  // had_depression_02_disfrute_cosas
+        q3: answers[questions[2]?.id] || 0,  // had_anxiety_03_temor_algo_suceder
+        q4: answers[questions[3]?.id] || 0,  // had_depression_04_reir_lado_gracioso
+        q5: answers[questions[4]?.id] || 0,  // had_anxiety_05_cabeza_preocupaciones
+        q6: answers[questions[5]?.id] || 0,  // had_depression_06_sentirse_alegre
+        q7: answers[questions[6]?.id] || 0,  // had_depression_07_sentado_tranquilo
+        q8: answers[questions[7]?.id] || 0,  // had_anxiety_08_lento_torpe
+        q9: answers[questions[8]?.id] || 0,  // had_anxiety_09_nervios_vacio_estomago
+        q10: answers[questions[9]?.id] || 0, // had_depression_10_interes_aspecto_personal
+        q11: answers[questions[10]?.id] || 0, // had_anxiety_11_inquieto_no_parar_mover
+        q12: answers[questions[11]?.id] || 0, // had_depression_12_esperar_cosas_ilusion
+        q13: answers[questions[12]?.id] || 0, // had_anxiety_13_angustia_temor_repentino
+        q14: answers[questions[13]?.id] || 0, // had_depression_14_disfrutar_libro_programa
+        if_had: true,
+        if_stopbang: false,
+        if_tfeq: false
+      };
+
+      // Debug: Verificar respuestas antes del envío
+      console.log('Respuestas HAD para envío:', {
+        answers: answers,
+        q1: answers[questions[0]?.id],
+        q2: answers[questions[1]?.id],
+        q3: answers[questions[2]?.id],
+        questionsIds: questions.map(q => q.id),
+        templateParams: templateParams
+      });
+
+      const result = await sendEmailWithAttachment(templateParams);
+      
+      if (result.success) {
+        setEmailSent(true);
+        alert('¡Correo enviado exitosamente al médico con todos los datos del cuestionario!');
+        setTimeout(() => {
+          setEmailSent(false);
+        }, 3000);
+      } else {
+        alert('Error al enviar el correo. Por favor intente nuevamente.');
+        console.error('Error:', result.error);
+      }
+    } catch (error) {
+      alert('Error al enviar el correo. Por favor intente nuevamente.');
+      console.error('Error:', error);
+    } finally {
+      setIsEmailSending(false);
+    }
+  };
+
   const goBack = () => current > 0 && setCurrent(current - 1);
   
   const restart = () => {
@@ -446,21 +545,23 @@ const HADQuestionnaire = () => {
                   <p className="text-base text-gray-500">Evaluación de ansiedad y depresión</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-col sm:flex-row w-full sm:w-auto mt-4 sm:mt-0">
                 <button
                   onClick={() => setAccessibilityMode((prev) => !prev)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-semibold text-lg shadow ${accessibilityMode ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                  className={`flex items-center justify-center gap-2 w-full sm:w-auto sm:px-4 sm:py-2 px-2 py-2 rounded-xl transition-all duration-300 font-semibold sm:text-lg text-base shadow ${accessibilityMode ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                   title="Activar/desactivar accesibilidad"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.07-6.93l-.71.71M6.34 17.66l-.71.71m12.02 0l-.71-.71M6.34 6.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
-                  {accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.07-6.93l-.71.71M6.34 17.66l-.71.71m12.02 0l-.71-.71M6.34 6.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+                  <span className="hidden sm:inline">{accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}</span>
+                  <span className="inline sm:hidden text-xs">{accessibilityMode ? 'ON' : 'OFF'}</span>
                 </button>
                 <button
                   onClick={goBackToHome}
-                  className="flex items-center gap-3 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all duration-300 font-semibold text-lg shadow"
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto sm:px-6 sm:py-3 px-2 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all duration-300 font-semibold sm:text-lg text-base shadow"
                 >
-                  <Home className="w-6 h-6" />
-                  Volver al Inicio
+                  <Home className="w-7 h-7 sm:w-6 sm:h-6" />
+                  <span className="hidden sm:inline">Volver al Inicio</span>
+                  <span className="inline sm:hidden text-xs">Inicio</span>
                 </button>
               </div>
             </div>
@@ -685,23 +786,40 @@ const HADQuestionnaire = () => {
                 </div>
               </div>
 
-              <div className="flex gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <button
                   onClick={downloadCSV}
-                  className="flex-1 bg-purple-600 text-white px-6 py-4 rounded-2xl hover:bg-purple-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  className="bg-purple-600 text-white px-6 py-4 rounded-2xl hover:bg-purple-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
                 >
                   <Download className="w-5 h-5" />
                   Descargar Resultados
                 </button>
                 <button
+                  onClick={sendEmail}
+                  className="bg-green-600 text-white px-6 py-4 rounded-2xl hover:bg-green-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  disabled={isEmailSending}
+                >
+                  {isEmailSending ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-5 h-5" />
+                      Enviar al Médico
+                    </>
+                  )}
+                </button>
+                <button
                   onClick={restart}
-                  className="flex-1 bg-gray-600 text-white px-6 py-4 rounded-2xl hover:bg-gray-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  className="bg-gray-600 text-white px-6 py-4 rounded-2xl hover:bg-gray-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
                 >
                   Reiniciar Cuestionario
                 </button>
                 <button
                   onClick={goBackToHome}
-                  className="flex-1 bg-blue-600 text-white px-6 py-4 rounded-2xl hover:bg-blue-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  className="bg-blue-600 text-white px-6 py-4 rounded-2xl hover:bg-blue-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
                 >
                   <Home className="w-5 h-5" />
                   Volver al Inicio
@@ -729,21 +847,23 @@ const HADQuestionnaire = () => {
                 <p className="text-base text-gray-500">Evaluación de ansiedad y depresión</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-col sm:flex-row w-full sm:w-auto mt-4 sm:mt-0">
               <button
                 onClick={() => setAccessibilityMode((prev) => !prev)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-semibold text-lg shadow ${accessibilityMode ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`flex items-center justify-center gap-2 w-full sm:w-auto sm:px-4 sm:py-2 px-2 py-2 rounded-xl transition-all duration-300 font-semibold sm:text-lg text-base shadow ${accessibilityMode ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                 title="Activar/desactivar accesibilidad"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.07-6.93l-.71.71M6.34 17.66l-.71.71m12.02 0l-.71-.71M6.34 6.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
-                {accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.07-6.93l-.71.71M6.34 17.66l-.71.71m12.02 0l-.71-.71M6.34 6.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+                <span className="hidden sm:inline">{accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}</span>
+                <span className="inline sm:hidden text-xs">{accessibilityMode ? 'ON' : 'OFF'}</span>
               </button>
               <button
                 onClick={goBackToHome}
-                className="flex items-center gap-3 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all duration-300 font-semibold text-lg shadow"
+                className="flex items-center justify-center gap-2 w-full sm:w-auto sm:px-6 sm:py-3 px-2 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all duration-300 font-semibold sm:text-lg text-base shadow"
               >
-                <Home className="w-6 h-6" />
-                Volver al Inicio
+                <Home className="w-7 h-7 sm:w-6 sm:h-6" />
+                <span className="hidden sm:inline">Volver al Inicio</span>
+                <span className="inline sm:hidden text-xs">Inicio</span>
               </button>
             </div>
           </div>
