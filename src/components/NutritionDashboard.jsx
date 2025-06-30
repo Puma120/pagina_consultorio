@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Stethoscope, Moon, Brain, ArrowRight, Utensils, Heart, Activity, Zap, Star } from 'lucide-react';
+import { Stethoscope, Moon, Brain, ArrowRight, Utensils, Heart, Activity, Zap, Star, Clock, AlertTriangle } from 'lucide-react';
 import StopBangQuestionnaire from './StopBangQuestionnaire';
 import HADQuestionnaire from './HADQuestionnaire';
 import TFEQQuestionnaire from './TFEQQuestionnaire';
@@ -7,6 +7,8 @@ import TFEQQuestionnaire from './TFEQQuestionnaire';
 const NutritionDashboard = () => {
   const [selected, setSelected] = useState(null);
   const [hoveredCard, setHoveredCard] = useState(null);
+  const [showInstructionsPopup, setShowInstructionsPopup] = useState(false);
+  const [pendingQuestionnaire, setPendingQuestionnaire] = useState(null);
 
   const questionnaires = [
     {
@@ -105,6 +107,26 @@ const NutritionDashboard = () => {
     },
   ];
 
+  const handleQuestionnaireClick = (questionnaireId) => {
+    if (questionnaireId === 'had' || questionnaireId === 'tfeq') {
+      setPendingQuestionnaire(questionnaireId);
+      setShowInstructionsPopup(true);
+    } else {
+      setSelected(questionnaireId);
+    }
+  };
+
+  const startQuestionnaire = () => {
+    setSelected(pendingQuestionnaire);
+    setShowInstructionsPopup(false);
+    setPendingQuestionnaire(null);
+  };
+
+  const cancelQuestionnaire = () => {
+    setShowInstructionsPopup(false);
+    setPendingQuestionnaire(null);
+  };
+
   if (selected === 'stopbang') {
     return <StopBangQuestionnaire />;
   }
@@ -130,12 +152,9 @@ const NutritionDashboard = () => {
         {/* Enhanced Header */}
         <div className="text-center mb-24">
           <div className="relative inline-block mb-8">
-            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl blur-xl opacity-30 animate-pulse"></div>
-            <div className="relative bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 p-6 rounded-3xl shadow-2xl">
-              <Stethoscope className="w-12 h-12 text-white" />
-              <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
-                <Star className="w-4 h-4 text-yellow-800" />
-              </div>
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-200 via-purple-200 to-pink-200 rounded-3xl blur-xl opacity-50 animate-pulse"></div>
+            <div className="relative bg-gradient-to-br from-blue-100 via-purple-200 to-pink-100 p-6 rounded-3xl shadow-2xl">
+              <Stethoscope className="w-12 h-12 text-blue-700" />
             </div>
           </div>
           
@@ -203,7 +222,7 @@ const NutritionDashboard = () => {
                   
                   {/* CTA Button */}
                   <button
-                    onClick={() => setSelected(q.id)}
+                    onClick={() => handleQuestionnaireClick(q.id)}
                     className={`w-full bg-gradient-to-r ${q.gradient} hover:bg-gradient-to-r hover:${q.hoverGradient} text-white font-bold py-4 px-8 rounded-2xl transition-all duration-500 transform hover:scale-105 shadow-xl ${q.shadowColor} hover:shadow-2xl flex items-center justify-center gap-3 group relative overflow-hidden hover:brightness-110 hover:saturate-110`}
                     onMouseEnter={() => setHoveredCard(q.id)}
                     onMouseLeave={() => setHoveredCard(null)}
@@ -224,6 +243,49 @@ const NutritionDashboard = () => {
       
       </div>
 
+      {/* Popup de instrucciones */}
+      {showInstructionsPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full mx-4 animate-fade-in">
+            <div className="text-center space-y-6">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+                <AlertTriangle className="w-8 h-8 text-red-600" />
+              </div>
+              
+              <div className="space-y-3">
+                <h2 className="text-2xl font-bold text-gray-800">Instrucciones Importantes</h2>
+                <p className="text-gray-600 leading-relaxed">
+                  Al responder las preguntas del cuestionario 
+                  <strong className="text-red-600">
+                    {pendingQuestionnaire === 'had' ? ' HAD' : ' TFEQ'}
+                  </strong>, por favor piense en 
+                  <strong className="text-red-600"> cómo se ha sentido durante las últimas dos semanas</strong>.
+                </p>
+                <p className="text-sm text-gray-500">
+                  Esto nos ayudará a obtener una evaluación más precisa de su estado 
+                  {pendingQuestionnaire === 'had' ? ' emocional' : ' alimentario'} actual.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelQuestionnaire}
+                  className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all duration-300 font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={startQuestionnaire}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl transition-all duration-300 font-medium"
+                >
+                  Continuar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx>{`
         @keyframes fadeInUp {
           from {
@@ -234,6 +296,21 @@ const NutritionDashboard = () => {
             opacity: 1;
             transform: translateY(0);
           }
+        }
+        
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        
+        .animate-fade-in {
+          animation: fadeIn 0.3s ease-out;
         }
         
         @keyframes float {

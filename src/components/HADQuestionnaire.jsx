@@ -15,7 +15,7 @@ const questions = [
     id: 'had_depression_02_disfrute_cosas',
     text: 'Sigo disfrutando con las mismas cosas de siempre',
     type: 'depression',
-    category: 'Estado de Ánimo',
+    category: 'Depresión',
     icon: Smile,
     reverse: true,
     number: 2
@@ -32,7 +32,7 @@ const questions = [
     id: 'had_depression_04_reir_lado_gracioso',
     text: 'Soy capaz de reírme y ver el lado gracioso de las cosas',
     type: 'depression',
-    category: 'Estado de Ánimo',
+    category: 'Depresión',
     icon: Smile,
     reverse: true,
     number: 4
@@ -49,7 +49,7 @@ const questions = [
     id: 'had_depression_06_sentirse_alegre',
     text: 'Me siento alegre',
     type: 'depression',
-    category: 'Estado de Ánimo',
+    category: 'Depresión',
     icon: Smile,
     reverse: true,
     number: 6
@@ -67,7 +67,7 @@ const questions = [
     id: 'had_depression_08_lento_torpe',
     text: 'Me siento lento(a) y torpe',
     type: 'depression',
-    category: 'Estado de Ánimo',
+    category: 'Depresión',
     icon: Clock,
     number: 8
   },
@@ -83,7 +83,7 @@ const questions = [
     id: 'had_depression_10_interes_aspecto_personal',
     text: 'He perdido el interés por mi aspecto personal',
     type: 'depression',
-    category: 'Estado de Ánimo',
+    category: 'Depresión',
     icon: Frown,
     number: 10
   },
@@ -99,7 +99,7 @@ const questions = [
     id: 'had_depression_12_esperar_cosas_ilusion',
     text: 'Espero las cosas con ilusión',
     type: 'depression',
-    category: 'Estado de Ánimo',
+    category: 'Depresión',
     icon: Smile,
     reverse: true,
     number: 12
@@ -116,7 +116,7 @@ const questions = [
     id: 'had_depression_14_disfrutar_libro_radio_tv',
     text: 'Soy capaz de disfrutar con un buen libro, programa de radio o televisión',
     type: 'depression',
-    category: 'Estado de Ánimo',
+    category: 'Depresión',
     icon: Smile,
     reverse: true,
     number: 14
@@ -369,12 +369,28 @@ const HADQuestionnaire = () => {
 
     return { anxietyScore, depressionScore };
   };  const getScoreLevel = (score, type) => {
-    if (score <= 8) {
-      return { level: 'Leve', color: 'green', description: `${type === 'ansiedad' ? 'Ansiedad' : 'Depresión'} leve` };
-    } else if (score >= 9 && score <= 11) {
-      return { level: 'Moderado', color: 'orange', description: `${type === 'ansiedad' ? 'Ansiedad' : 'Depresión'} moderada` };
+    if (type === 'ansiedad') {
+      // Ansiedad: 0-7 Sin síntomas, 8 Leves, 9-10 Moderados, 11+ Significativos
+      if (score <= 7) {
+        return { level: 'Sin síntomas', color: 'green', description: 'Sin síntomas de ansiedad' };
+      } else if (score === 8) {
+        return { level: 'Leves', color: 'yellow', description: 'Síntomas leves de ansiedad' };
+      } else if (score >= 9 && score <= 10) {
+        return { level: 'Moderados', color: 'orange', description: 'Síntomas moderados de ansiedad' };
+      } else {
+        return { level: 'Significativos', color: 'red', description: 'Síntomas significativos de ansiedad' };
+      }
     } else {
-      return { level: 'Alto', color: 'red', description: `${type === 'ansiedad' ? 'Ansiedad' : 'Depresión'} alta` };
+      // Depresión: 0-6 Sin síntomas, 7 Leves, 8-10 Moderados, 11+ Significativos
+      if (score <= 6) {
+        return { level: 'Sin síntomas', color: 'green', description: 'Sin síntomas de depresión' };
+      } else if (score === 7) {
+        return { level: 'Leves', color: 'yellow', description: 'Síntomas leves de depresión' };
+      } else if (score >= 8 && score <= 10) {
+        return { level: 'Moderados', color: 'orange', description: 'Síntomas moderados de depresión' };
+      } else {
+        return { level: 'Significativos', color: 'red', description: 'Síntomas significativos de depresión' };
+      }
     }
   };
 
@@ -445,11 +461,11 @@ const HADQuestionnaire = () => {
         anxiety_score: anxietyScore,
         anxiety_level: anxietyData.level,
         anxiety_description: anxietyData.description,
-        anxiety_level_class: anxietyData.color === 'red' ? 'high' : anxietyData.color === 'orange' ? 'moderate' : 'low',
+        anxiety_level_class: anxietyData.color === 'red' ? 'high' : anxietyData.color === 'orange' ? 'moderate' : anxietyData.color === 'yellow' ? 'moderate' : 'low',
         depression_score: depressionScore,
         depression_level: depressionData.level,
         depression_description: depressionData.description,
-        depression_level_class: depressionData.color === 'red' ? 'high' : depressionData.color === 'orange' ? 'moderate' : 'low',
+        depression_level_class: depressionData.color === 'red' ? 'high' : depressionData.color === 'orange' ? 'moderate' : depressionData.color === 'yellow' ? 'moderate' : 'low',
         message: 'Resultados del cuestionario HAD completado por el paciente.',
         csv_data: csvString, // Mantener CSV como texto de respaldo
         // Agregar respuestas individuales para mostrar en la plantilla
@@ -551,7 +567,13 @@ const HADQuestionnaire = () => {
                   className={`flex items-center justify-center gap-2 w-full sm:w-auto sm:px-4 sm:py-2 px-2 py-2 rounded-xl transition-all duration-300 font-semibold sm:text-lg text-base shadow ${accessibilityMode ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                   title="Activar/desactivar accesibilidad"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.07-6.93l-.71.71M6.34 17.66l-.71.71m12.02 0l-.71-.71M6.34 6.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+                  {/* Ícono de accesibilidad personalizado */}
+                  <img
+                    src="/1-a4575525.png"
+                    alt="Accesibilidad"
+                    className="h-7 w-7 sm:h-6 sm:w-6 object-contain"
+                    style={{ filter: accessibilityMode ? 'grayscale(0%)' : 'grayscale(60%)', opacity: accessibilityMode ? 1 : 0.7 }}
+                  />
                   <span className="hidden sm:inline">{accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}</span>
                   <span className="inline sm:hidden text-xs">{accessibilityMode ? 'ON' : 'OFF'}</span>
                 </button>
@@ -767,15 +789,17 @@ const HADQuestionnaire = () => {
                 </h4>                <div className="space-y-3 text-sm text-gray-600">
                   <div>
                     <p className="font-semibold text-gray-700 mb-1">Ansiedad (reactivos impares 1,3,5,7,9,11,13):</p>
-                    <p><strong>• Leve:</strong> 8 puntos o menos</p>
-                    <p><strong>• Moderado:</strong> 9-11 puntos</p>
-                    <p><strong>• Alto:</strong> {'>'}11 puntos</p>
+                    <p><strong>• Sin síntomas:</strong> 0-7 puntos</p>
+                    <p><strong>• Leves:</strong> 8 puntos</p>
+                    <p><strong>• Moderados:</strong> 9-10 puntos</p>
+                    <p><strong>• Significativos:</strong> 11 o más puntos</p>
                   </div>
                   <div>
                     <p className="font-semibold text-gray-700 mb-1">Depresión (reactivos pares 2,4,6,8,10,12,14):</p>
-                    <p><strong>• Leve:</strong> 8 puntos o menos</p>
-                    <p><strong>• Moderado:</strong> 9-11 puntos</p>
-                    <p><strong>• Alto:</strong> {'>'}11 puntos</p>
+                    <p><strong>• Sin síntomas:</strong> 0-6 puntos</p>
+                    <p><strong>• Leves:</strong> 7 puntos</p>
+                    <p><strong>• Moderados:</strong> 8-10 puntos</p>
+                    <p><strong>• Significativos:</strong> 11 o más puntos</p>
                   </div>
                 </div>
                 <div className="mt-4 p-4 bg-purple-50 rounded-xl">
@@ -789,19 +813,19 @@ const HADQuestionnaire = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <button
                   onClick={downloadCSV}
-                  className="bg-purple-600 text-white px-6 py-4 rounded-2xl hover:bg-purple-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  className="bg-indigo-300 text-indigo-800 px-6 py-4 rounded-2xl hover:bg-indigo-400 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
                 >
                   <Download className="w-5 h-5" />
                   Descargar Resultados
                 </button>
                 <button
                   onClick={sendEmail}
-                  className="bg-green-600 text-white px-6 py-4 rounded-2xl hover:bg-green-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  className="bg-violet-300 text-violet-800 px-6 py-4 rounded-2xl hover:bg-violet-400 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
                   disabled={isEmailSending}
                 >
                   {isEmailSending ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-4 h-4 border-2 border-violet-800 border-t-transparent rounded-full animate-spin"></div>
                       Enviando...
                     </>
                   ) : (
@@ -813,13 +837,13 @@ const HADQuestionnaire = () => {
                 </button>
                 <button
                   onClick={restart}
-                  className="bg-gray-600 text-white px-6 py-4 rounded-2xl hover:bg-gray-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  className="bg-fuchsia-300 text-fuchsia-800 px-6 py-4 rounded-2xl hover:bg-fuchsia-400 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
                 >
                   Reiniciar Cuestionario
                 </button>
                 <button
                   onClick={goBackToHome}
-                  className="bg-blue-600 text-white px-6 py-4 rounded-2xl hover:bg-blue-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  className="bg-rose-300 text-rose-800 px-6 py-4 rounded-2xl hover:bg-rose-400 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
                 >
                   <Home className="w-5 h-5" />
                   Volver al Inicio
@@ -853,7 +877,13 @@ const HADQuestionnaire = () => {
                 className={`flex items-center justify-center gap-2 w-full sm:w-auto sm:px-4 sm:py-2 px-2 py-2 rounded-xl transition-all duration-300 font-semibold sm:text-lg text-base shadow ${accessibilityMode ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                 title="Activar/desactivar accesibilidad"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.07-6.93l-.71.71M6.34 17.66l-.71.71m12.02 0l-.71-.71M6.34 6.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+                {/* Ícono de accesibilidad personalizado */}
+                <img
+                  src="/1-a4575525.png"
+                  alt="Accesibilidad"
+                  className="h-7 w-7 sm:h-6 sm:w-6 object-contain"
+                  style={{ filter: accessibilityMode ? 'grayscale(0%)' : 'grayscale(60%)', opacity: accessibilityMode ? 1 : 0.7 }}
+                />
                 <span className="hidden sm:inline">{accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}</span>
                 <span className="inline sm:hidden text-xs">{accessibilityMode ? 'ON' : 'OFF'}</span>
               </button>

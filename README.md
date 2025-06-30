@@ -1,12 +1,61 @@
-# React + Vite
+# Panel de Evaluación Médica
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistema de cuestionarios médicos interactivos con funcionalidad de descarga y envío por correo electrónico.
 
-Currently, two official plugins are available:
+## Características
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Cuestionarios Disponibles:
+- **HAD** - Escala Hospitalaria de Ansiedad y Depresión
+- **STOP-Bang** - Evaluación de riesgo de apnea del sueño
+- **TFEQ-R18** - Inventario de Alimentación de Tres Factores
 
-## Expanding the ESLint configuration
+### Funcionalidades:
+- ✅ Interfaz moderna y responsiva
+- ✅ Modo de accesibilidad con síntesis de voz
+- ✅ Descarga de resultados en formato CSV
+- ✅ **Envío de resultados por correo electrónico** (EmailJS)
+- ✅ **Datos completamente legibles para médicos** - sin archivos técnicos
+- ✅ **Presentación profesional de todas las respuestas** en formato tabla
+- ✅ Evaluación automática con interpretación de resultados
+- ✅ Información del paciente personalizada
+- ✅ Envío directo sin formularios adicionales
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Instalación
+
+```bash
+npm install
+```
+
+## Configuración de EmailJS
+
+Para habilitar el envío por correo electrónico, sigue los pasos en el archivo `EMAIL_SETUP.md`.
+
+## Desarrollo
+
+```bash
+npm run dev
+```
+
+## Construcción
+
+```bash
+npm run build
+```
+
+## Tecnologías
+
+- React 19
+- Vite
+- Tailwind CSS
+- Lucide React (iconos)
+- EmailJS (envío de correos)
+
+## Estructura de Archivos
+
+```
+src/
+├── components/           # Componentes de los cuestionarios
+├── utils/               # Utilidades (CSV, EmailJS, evaluadores)
+├── templates/           # Plantillas HTML para correos
+└── assets/             # Recursos estáticos
+```

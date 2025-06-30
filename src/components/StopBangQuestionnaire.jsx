@@ -13,7 +13,7 @@ const questions = [
   { id: 'pressure', text: '¿Tiene presión arterial alta?', category: 'P - Pressure', icon: Heart },
   { id: 'bmi', text: '¿Su IMC es mayor a 35?', category: 'B - BMI', icon: Weight },
   { id: 'age', text: '¿Es mayor de 50 años?', category: 'A - Age', icon: Calendar },
-  { id: 'neck', text: '¿Su cuello es grande?', category: 'N - Neck', icon: Ruler },
+  { id: 'neck', text: '¿Su cuello es grande? (Cuello mayor a 40cm (♂) o 35cm (♀))', category: 'N - Neck', icon: Ruler },
   { id: 'gender', text: '¿Su género es masculino?', category: 'G - Gender', icon: User },
 ];
 
@@ -279,7 +279,13 @@ const StopBangQuestionnaire = () => {
                   className={`flex items-center justify-center gap-2 w-full sm:w-auto sm:px-4 sm:py-2 px-2 py-2 rounded-xl transition-all duration-300 font-semibold sm:text-lg text-base shadow ${accessibilityMode ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                   title="Activar/desactivar accesibilidad"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.07-6.93l-.71.71M6.34 17.66l-.71.71m12.02 0l-.71-.71M6.34 6.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+                  {/* Ícono de accesibilidad personalizado */}
+                  <img
+                    src="/1-a4575525.png"
+                    alt="Accesibilidad"
+                    className="h-7 w-7 sm:h-6 sm:w-6 object-contain"
+                    style={{ filter: accessibilityMode ? 'grayscale(0%)' : 'grayscale(60%)', opacity: accessibilityMode ? 1 : 0.7 }}
+                  />
                   <span className="hidden sm:inline">{accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}</span>
                   <span className="inline sm:hidden text-xs">{accessibilityMode ? 'ON' : 'OFF'}</span>
                 </button>
@@ -397,7 +403,13 @@ const StopBangQuestionnaire = () => {
                 className={`flex items-center justify-center gap-2 w-full sm:w-auto sm:px-4 sm:py-2 px-2 py-2 rounded-xl transition-all duration-300 font-semibold sm:text-lg text-base shadow ${accessibilityMode ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                 title="Activar/desactivar accesibilidad"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.07-6.93l-.71.71M6.34 17.66l-.71.71m12.02 0l-.71-.71M6.34 6.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+                {/* Ícono de accesibilidad personalizado */}
+                <img
+                  src="/1-a4575525.png"
+                  alt="Accesibilidad"
+                  className="h-7 w-7 sm:h-6 sm:w-6 object-contain"
+                  style={{ filter: accessibilityMode ? 'grayscale(0%)' : 'grayscale(60%)', opacity: accessibilityMode ? 1 : 0.7 }}
+                />
                 <span className="hidden sm:inline">{accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}</span>
                 <span className="inline sm:hidden text-xs">{accessibilityMode ? 'ON' : 'OFF'}</span>
               </button>
@@ -482,19 +494,19 @@ const StopBangQuestionnaire = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <button
                   onClick={downloadCSV}
-                  className="bg-blue-600 text-white px-6 py-4 rounded-2xl hover:bg-blue-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  className="bg-indigo-300 text-indigo-800 px-6 py-4 rounded-2xl hover:bg-indigo-400 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
                 >
                   <Download className="w-5 h-5" />
                   Descargar Resultados
                 </button>
                 <button
                   onClick={sendEmail}
-                  className="bg-green-600 text-white px-6 py-4 rounded-2xl hover:bg-green-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  className="bg-violet-300 text-violet-800 px-6 py-4 rounded-2xl hover:bg-violet-400 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
                   disabled={isEmailSending}
                 >
                   {isEmailSending ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-4 h-4 border-2 border-violet-800 border-t-transparent rounded-full animate-spin"></div>
                       Enviando...
                     </>
                   ) : (
@@ -506,13 +518,13 @@ const StopBangQuestionnaire = () => {
                 </button>
                 <button
                   onClick={restart}
-                  className="bg-gray-600 text-white px-6 py-4 rounded-2xl hover:bg-gray-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  className="bg-fuchsia-300 text-fuchsia-800 px-6 py-4 rounded-2xl hover:bg-fuchsia-400 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
                 >
                   Reiniciar Cuestionario
                 </button>
                 <button
                   onClick={goBackToHome}
-                  className="bg-purple-600 text-white px-6 py-4 rounded-2xl hover:bg-purple-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  className="bg-rose-300 text-rose-800 px-6 py-4 rounded-2xl hover:bg-rose-400 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
                 >
                   <Home className="w-5 h-5" />
                   Volver al Inicio
