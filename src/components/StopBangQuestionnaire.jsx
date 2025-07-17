@@ -37,6 +37,10 @@ const StopBangQuestionnaire = () => {
   const [isEmailSending, setIsEmailSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   
+  // Estados para calculadora de IMC
+  const [showBMICalculator, setShowBMICalculator] = useState(false);
+  const [bmiData, setBmiData] = useState({ weight: '', height: '', result: null });
+  
   const synthRef = useRef(window.speechSynthesis);
   const utteranceRef = useRef(null);
   const touchTimeout = useRef(null);
@@ -231,6 +235,40 @@ const StopBangQuestionnaire = () => {
 
   const goBackToHome = () => {
     window.location.reload();
+  };
+
+  // Funciones para calculadora de IMC
+  const calculateBMI = () => {
+    const weight = parseFloat(bmiData.weight);
+    const height = parseFloat(bmiData.height) / 100; // convertir cm a metros
+    
+    if (weight > 0 && height > 0) {
+      const bmi = weight / (height * height);
+      const result = {
+        value: bmi.toFixed(1),
+        category: bmi > 35 ? 'Mayor a 35 (Obesidad clase II/III)' : 'Menor o igual a 35',
+        isAbove35: bmi > 35
+      };
+      setBmiData(prev => ({ ...prev, result }));
+      return result;
+    }
+    return null;
+  };
+
+  const handleBMICalculate = () => {
+    const result = calculateBMI();
+    if (result) {
+      // Opcional: sugerir respuesta basada en el resultado
+      if (result.isAbove35) {
+        alert(`Tu IMC es ${result.value} (${result.category}). Esto sugiere responder "Sí" a la pregunta sobre IMC mayor a 35.`);
+      } else {
+        alert(`Tu IMC es ${result.value} (${result.category}). Esto sugiere responder "No" a la pregunta sobre IMC mayor a 35.`);
+      }
+    }
+  };
+
+  const resetBMICalculator = () => {
+    setBmiData({ weight: '', height: '', result: null });
   };
 
   const progress = Math.round(((current + 1) / questions.length) * 100);
@@ -571,6 +609,20 @@ const StopBangQuestionnaire = () => {
                   <h2 className="text-xl font-semibold text-gray-800 leading-relaxed text-center">
                     {questions[current].text}
                   </h2>
+                  
+                  {/* Mostrar enlace para calcular IMC solo en la pregunta del IMC */}
+                  {questions[current].id === 'bmi' && (
+                    <div className="text-center mt-4">
+                      <button
+                        type="button"
+                        onClick={() => setShowBMICalculator(true)}
+                        className="text-blue-600 hover:text-blue-800 underline text-sm font-medium"
+                      >
+                        ¿No sabes tu IMC?
+                      </button>
+                    </div>
+                  )}
+                  
                   <div className="flex justify-center mt-2">
                     <button
                       type="button"
@@ -634,6 +686,98 @@ const StopBangQuestionnaire = () => {
           </div>
         )}
       </div>
+      
+      {/* Popup Calculadora de IMC */}
+      {showBMICalculator && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full space-y-6">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Weight className="w-8 h-8 text-blue-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Calculadora de IMC</h2>
+              <p className="text-gray-600 text-sm">Ingresa tu peso y altura para calcular tu Índice de Masa Corporal</p>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Peso (kg) *
+                </label>
+                <input
+                  type="number"
+                  value={bmiData.weight}
+                  onChange={(e) => setBmiData(prev => ({ ...prev, weight: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                  placeholder="Ejemplo: 70"
+                  step="0.1"
+                  min="1"
+                  max="300"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Altura (cm) *
+                </label>
+                <input
+                  type="number"
+                  value={bmiData.height}
+                  onChange={(e) => setBmiData(prev => ({ ...prev, height: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                  placeholder="Ejemplo: 170"
+                  step="0.1"
+                  min="50"
+                  max="250"
+                />
+              </div>
+              
+              {bmiData.result && (
+                <div className={`p-4 rounded-xl border-2 ${bmiData.result.isAbove35 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-gray-800 mb-1">
+                      IMC: {bmiData.result.value}
+                    </div>
+                    <div className={`text-sm font-medium ${bmiData.result.isAbove35 ? 'text-red-600' : 'text-green-600'}`}>
+                      {bmiData.result.category}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={handleBMICalculate}
+                disabled={!bmiData.weight || !bmiData.height}
+                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-all duration-300 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                Calcular IMC
+              </button>
+              <button
+                onClick={resetBMICalculator}
+                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-300 font-medium"
+              >
+                Limpiar
+              </button>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowBMICalculator(false)}
+                className="flex-1 bg-gray-600 text-white px-6 py-3 rounded-xl hover:bg-gray-700 transition-all duration-300 font-medium"
+              >
+                Cerrar
+              </button>
+            </div>
+            
+            <div className="text-xs text-gray-500 text-center">
+              <p><strong>Referencia:</strong> IMC normal: 18.5-24.9 | Sobrepeso: 25-29.9 | Obesidad I: 30-34.9 | Obesidad II/III: ≥35</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <style jsx>{`
         @keyframes fade-in {
           from { opacity: 0; transform: translateY(20px); }
