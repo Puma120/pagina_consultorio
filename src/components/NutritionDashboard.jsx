@@ -127,16 +127,34 @@ const NutritionDashboard = () => {
     setPendingQuestionnaire(null);
   };
 
+  // Funciones de navegación entre cuestionarios
+  const goToStopBang = () => setSelected('stopbang');
+  const goToHAD = () => setSelected('had');
+  const goToTFEQ = () => setSelected('tfeq');
+  const goToHome = () => setSelected(null);
+
   if (selected === 'stopbang') {
-    return <StopBangQuestionnaire />;
+    return <StopBangQuestionnaire 
+      onGoToHome={goToHome}
+      onGoToHAD={goToHAD}
+      onGoToTFEQ={goToTFEQ}
+    />;
   }
 
   if (selected === 'had') {
-    return <HADQuestionnaire />;
+    return <HADQuestionnaire 
+      onGoToHome={goToHome}
+      onGoToStopBang={goToStopBang}
+      onGoToTFEQ={goToTFEQ}
+    />;
   }
 
   if (selected === 'tfeq') {
-    return <TFEQQuestionnaire />;
+    return <TFEQQuestionnaire 
+      onGoToHome={goToHome}
+      onGoToStopBang={goToStopBang}
+      onGoToHAD={goToHAD}
+    />;
   }
 
   return (

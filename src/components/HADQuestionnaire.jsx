@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle, AlertCircle, Download, ArrowLeft, Brain, Heart, Moon, Smile, Frown, Zap, Clock, User, Home, Mail } from 'lucide-react';
+import { CheckCircle, AlertCircle, Download, ArrowLeft, Brain, Heart, Moon, Smile, Frown, Zap, Clock, User, Home, Mail, ChevronLeft, ChevronRight } from 'lucide-react';
 import { sendEmailWithAttachment, generateCSVString, createCSVAttachment } from '../utils/emailService';
 
 const questions = [
@@ -229,7 +229,7 @@ const reverseAnswerOptions = [
   { value: 0, label: 'Siempre' }
 ];
 
-const HADQuestionnaire = () => {
+const HADQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToTFEQ }) => {
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState({});
   const [isComplete, setIsComplete] = useState(false);
@@ -534,7 +534,46 @@ const HADQuestionnaire = () => {
   };
 
   const goBackToHome = () => {
-    window.location.reload();
+    if (onGoToHome) {
+      onGoToHome();
+    } else {
+      window.location.reload();
+    }
+  };
+
+  // Funciones de navegación entre cuestionarios
+  const goToNextQuestionnaire = () => {
+    // HAD (2) -> TFEQ (3)
+    if (onGoToTFEQ) {
+      onGoToTFEQ();
+    } else {
+      window.location.href = '/tfeq-questionnaire';
+    }
+  };
+
+  const goToPreviousQuestionnaire = () => {
+    // HAD (2) -> STOP-Bang (1)
+    if (onGoToStopBang) {
+      onGoToStopBang();
+    } else {
+      window.location.href = '/stop-bang-questionnaire';
+    }
+  };
+
+  const goToStopBangQuestionnaire = () => {
+    if (onGoToStopBang) {
+      onGoToStopBang();
+    } else {
+      window.location.href = '/stop-bang-questionnaire';
+    }
+  };
+
+  const goToTFEQQuestionnaire = () => {
+    if (onGoToTFEQ) {
+      onGoToTFEQ();
+    } else {
+      window.location.href = '/tfeq-questionnaire';
+    }
   };
 
   const progress = Math.round(((current + 1) / questions.length) * 100);
@@ -848,6 +887,43 @@ const HADQuestionnaire = () => {
                   <Home className="w-5 h-5" />
                   Volver al Inicio
                 </button>
+              </div>
+
+              {/* Navegación entre cuestionarios */}
+              <div className="border-t pt-6 mt-6">
+                <h4 className="text-lg font-semibold text-gray-800 text-center mb-4">
+                  Navegar entre cuestionarios
+                </h4>
+                <div className="flex justify-center gap-4">
+                  <button
+                    onClick={goToPreviousQuestionnaire}
+                    className="bg-blue-500 text-white px-6 py-3 rounded-2xl hover:bg-blue-600 transition-all duration-300 flex items-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                    <span>Anterior: STOP-Bang</span>
+                  </button>
+                  <button
+                    onClick={goToNextQuestionnaire}
+                    className="bg-green-500 text-white px-6 py-3 rounded-2xl hover:bg-green-600 transition-all duration-300 flex items-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  >
+                    <span>Siguiente: TFEQ</span>
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="flex justify-center gap-2 mt-4">
+                  <button
+                    onClick={goToStopBangQuestionnaire}
+                    className="bg-blue-100 text-blue-700 px-4 py-2 rounded-xl hover:bg-blue-200 transition-all duration-300 text-sm font-medium"
+                  >
+                    STOP-Bang (Apnea)
+                  </button>
+                  <button
+                    onClick={goToTFEQQuestionnaire}
+                    className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl hover:bg-orange-200 transition-all duration-300 text-sm font-medium"
+                  >
+                    TFEQ (Alimentación)
+                  </button>
+                </div>
               </div>
             </div>
           </div>

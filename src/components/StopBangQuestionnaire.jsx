@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   CheckCircle, AlertCircle, Download, ArrowLeft, Volume2,
-  Coffee, Eye, Heart, Weight, Calendar, Ruler, User, Home, Moon, Mail
+  Coffee, Eye, Heart, Weight, Calendar, Ruler, User, Home, Moon, Mail, ArrowRight, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { evaluateStopBang } from '../utils/stopbangEvaluator';
 import { sendEmailWithAttachment, generateCSVString, createCSVAttachment } from '../utils/emailService';
@@ -17,7 +17,7 @@ const questions = [
   { id: 'gender', text: '¿Su género es masculino?', category: 'G - Gender', icon: User },
 ];
 
-const StopBangQuestionnaire = () => {
+const StopBangQuestionnaire = ({ onGoToHome, onGoToHAD, onGoToTFEQ }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -234,7 +234,11 @@ const StopBangQuestionnaire = () => {
   };
 
   const goBackToHome = () => {
-    window.location.reload();
+    if (onGoToHome) {
+      onGoToHome();
+    } else {
+      window.location.reload();
+    }
   };
 
   // Funciones para calculadora de IMC
@@ -269,6 +273,37 @@ const StopBangQuestionnaire = () => {
 
   const resetBMICalculator = () => {
     setBmiData({ weight: '', height: '', result: null });
+  };
+
+  // Funciones de navegación entre cuestionarios
+  const goToNextQuestionnaire = () => {
+    // STOP-Bang (1) -> HAD (2)
+    if (onGoToHAD) {
+      onGoToHAD();
+    } else {
+      window.location.href = '/had-questionnaire';
+    }
+  };
+
+  const goToPreviousQuestionnaire = () => {
+    // STOP-Bang es el primer cuestionario, no hay anterior
+    return;
+  };
+
+  const goToHADQuestionnaire = () => {
+    if (onGoToHAD) {
+      onGoToHAD();
+    } else {
+      window.location.href = '/had-questionnaire';
+    }
+  };
+
+  const goToTFEQQuestionnaire = () => {
+    if (onGoToTFEQ) {
+      onGoToTFEQ();
+    } else {
+      window.location.href = '/tfeq-questionnaire';
+    }
   };
 
   const progress = Math.round(((current + 1) / questions.length) * 100);
@@ -567,6 +602,36 @@ const StopBangQuestionnaire = () => {
                   <Home className="w-5 h-5" />
                   Volver al Inicio
                 </button>
+              </div>
+
+              {/* Navegación entre cuestionarios */}
+              <div className="border-t pt-6 mt-6">
+                <h4 className="text-lg font-semibold text-gray-800 text-center mb-4">
+                  Continuar con otros cuestionarios
+                </h4>
+                <div className="flex justify-center gap-4">
+                  <button
+                    onClick={goToNextQuestionnaire}
+                    className="bg-green-500 text-white px-6 py-3 rounded-2xl hover:bg-green-600 transition-all duration-300 flex items-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                  >
+                    <span>Siguiente: HAD</span>
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="flex justify-center gap-2 mt-4">
+                  <button
+                    onClick={goToHADQuestionnaire}
+                    className="bg-purple-100 text-purple-700 px-4 py-2 rounded-xl hover:bg-purple-200 transition-all duration-300 text-sm font-medium"
+                  >
+                    HAD (Ansiedad/Depresión)
+                  </button>
+                  <button
+                    onClick={goToTFEQQuestionnaire}
+                    className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl hover:bg-orange-200 transition-all duration-300 text-sm font-medium"
+                  >
+                    TFEQ (Alimentación)
+                  </button>
+                </div>
               </div>
             </div>
           </div>
