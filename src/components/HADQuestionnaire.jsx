@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle, AlertCircle, Download, ArrowLeft, Brain, Heart, Moon, Smile, Frown, Zap, Clock, User, Home, Mail, ChevronLeft, ChevronRight } from 'lucide-react';
 import { sendEmailWithAttachment, generateCSVString, createCSVAttachment } from '../utils/emailService';
+import QuestionnaireNavBar from './QuestionnaireNavBar';
 
 const questions = [
   {
@@ -229,13 +230,14 @@ const reverseAnswerOptions = [
   { value: 0, label: 'Siempre' }
 ];
 
-const HADQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToTFEQ }) => {
+const HADQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToTFEQ, patientInfo: externalPatientInfo, onComplete, hidePatientForm = false, progressBar, showResultScreen = true }) => {
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState({});
   const [isComplete, setIsComplete] = useState(false);
   const [showResult, setShowResult] = useState(false);
-  const [showPatientInfo, setShowPatientInfo] = useState(true);
-  const [patientInfo, setPatientInfo] = useState({
+  const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
+  const [showPatientInfo, setShowPatientInfo] = useState(!hidePatientForm && !externalPatientInfo);
+  const [patientInfo, setPatientInfo] = useState(externalPatientInfo || {
     name: '',
     age: '',
     gender: ''
@@ -346,18 +348,49 @@ const HADQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToTFEQ }) => {
       setTimeout(() => setCurrent(current + 1), 300);
     } else {
       setIsComplete(true);
-      setTimeout(() => {
-        setShowResult(true);
-      }, 500);
+      
+      if (showResultScreen) {
+        // Mostrar pantalla de resultados normal
+        setTimeout(() => {
+          setShowResult(true);
+        }, 500);
+      } else {
+        // Mostrar animación de completado y luego continuar
+        setShowCompletionAnimation(true);
+        const { anxietyScore, depressionScore } = calculateScores(newAnswers);
+        const anxietyData = getScoreLevel(anxietyScore, 'ansiedad');
+        const depressionData = getScoreLevel(depressionScore, 'depresión');
+        
+        setTimeout(() => {
+          if (onComplete) {
+            onComplete({
+              answers: newAnswers,
+              scores: {
+                anxiety: {
+                  score: anxietyScore,
+                  level: anxietyData.level,
+                  interpretation: anxietyData.description
+                },
+                depression: {
+                  score: depressionScore,
+                  level: depressionData.level,
+                  interpretation: depressionData.description
+                }
+              },
+              patientInfo: patientInfo
+            });
+          }
+        }, 2000);
+      }
     }
   };
 
-  const calculateScores = () => {
+  const calculateScores = (answersToEvaluate = answers) => {
     let anxietyScore = 0;
     let depressionScore = 0;
 
     questions.forEach(question => {
-      const answer = answers[question.id];
+      const answer = answersToEvaluate[question.id];
       if (answer !== undefined) {
         if (question.type === 'anxiety') {
           anxietyScore += answer;
@@ -372,24 +405,56 @@ const HADQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToTFEQ }) => {
     if (type === 'ansiedad') {
       // Ansiedad: 0-7 Sin síntomas, 8 Leves, 9-10 Moderados, 11+ Significativos
       if (score <= 7) {
-        return { level: 'Sin síntomas', color: 'green', description: 'Sin síntomas de ansiedad' };
+        return { 
+          level: 'Sin síntomas', 
+          color: 'green', 
+          description: 'No se identifican síntomas significativos de ansiedad. Los niveles de preocupación y tensión se encuentran dentro de rangos normales. El paciente puede experimentar ocasionalmente inquietud leve relacionada con situaciones estresantes cotidianas, pero sin afectación funcional importante.'
+        };
       } else if (score === 8) {
-        return { level: 'Leves', color: 'yellow', description: 'Síntomas leves de ansiedad' };
+        return { 
+          level: 'Leves', 
+          color: 'yellow', 
+          description: 'Se detectan síntomas leves de ansiedad que pueden manifestarse como tensión ocasional, preocupaciones leves o nerviosismo en situaciones específicas. Estos síntomas son manejables y no interfieren significativamente con las actividades diarias. Se recomienda monitoreo y técnicas de manejo del estrés.'
+        };
       } else if (score >= 9 && score <= 10) {
-        return { level: 'Moderados', color: 'orange', description: 'Síntomas moderados de ansiedad' };
+        return { 
+          level: 'Moderados', 
+          color: 'orange', 
+          description: 'Presencia de síntomas moderados de ansiedad que incluyen preocupación frecuente, tensión muscular, inquietud y posiblemente dificultad para relajarse. Estos síntomas pueden comenzar a afectar el funcionamiento diario y la calidad de vida. Se recomienda evaluación clínica y considerar intervenciones terapéuticas como técnicas de relajación, terapia cognitivo-conductual o manejo farmacológico según criterio profesional.'
+        };
       } else {
-        return { level: 'Significativos', color: 'red', description: 'Síntomas significativos de ansiedad' };
+        return { 
+          level: 'Significativos', 
+          color: 'red', 
+          description: 'Se identifican síntomas significativos de ansiedad que requieren atención profesional. Pueden incluir preocupación excesiva constante, tensión severa, sensación de pánico, dificultad importante para relajarse y síntomas físicos como palpitaciones o sensación de vacío en el estómago. Estos síntomas interfieren notablemente con el funcionamiento diario. Se recomienda enfáticamente evaluación y seguimiento por profesional de salud mental para establecer plan de tratamiento apropiado.'
+        };
       }
     } else {
       // Depresión: 0-6 Sin síntomas, 7 Leves, 8-10 Moderados, 11+ Significativos
       if (score <= 6) {
-        return { level: 'Sin síntomas', color: 'green', description: 'Sin síntomas de depresión' };
+        return { 
+          level: 'Sin síntomas', 
+          color: 'green', 
+          description: 'No se identifican síntomas significativos de depresión. El estado de ánimo se mantiene en niveles normales, con capacidad para disfrutar de las actividades habituales y mantener el interés en el aspecto personal y el entorno. La persona conserva su energía y motivación para las actividades diarias.'
+        };
       } else if (score === 7) {
-        return { level: 'Leves', color: 'yellow', description: 'Síntomas leves de depresión' };
+        return { 
+          level: 'Leves', 
+          color: 'yellow', 
+          description: 'Se detectan síntomas leves de depresión que pueden incluir ánimo bajo ocasional, ligera disminución del interés en algunas actividades o leve reducción de la energía. Estos síntomas son transitorios y no impactan significativamente el funcionamiento general. Se recomienda monitoreo, actividades placenteras, ejercicio regular y apoyo social.'
+        };
       } else if (score >= 8 && score <= 10) {
-        return { level: 'Moderados', color: 'orange', description: 'Síntomas moderados de depresión' };
+        return { 
+          level: 'Moderados', 
+          color: 'orange', 
+          description: 'Presencia de síntomas moderados de depresión que incluyen tristeza frecuente, pérdida notable del interés en actividades antes placenteras, fatiga, posible descuido del aspecto personal y dificultad para experimentar alegría. Estos síntomas afectan la calidad de vida y el funcionamiento diario. Se recomienda evaluación clínica profesional y considerar intervención terapéutica como terapia cognitivo-conductual, activación conductual o tratamiento farmacológico según criterio del especialista.'
+        };
       } else {
-        return { level: 'Significativos', color: 'red', description: 'Síntomas significativos de depresión' };
+        return { 
+          level: 'Significativos', 
+          color: 'red', 
+          description: 'Se identifican síntomas significativos de depresión que requieren atención profesional urgente. Pueden incluir tristeza profunda persistente, pérdida marcada del interés en prácticamente todas las actividades, fatiga severa, sentimientos de inutilidad, descuido importante del aspecto personal y posible dificultad para encontrar sentido o esperanza. Estos síntomas interfieren gravemente con el funcionamiento diario. Se recomienda enfáticamente evaluación inmediata por profesional de salud mental para establecer plan de tratamiento integral que puede incluir psicoterapia y tratamiento farmacológico.'
+        };
       }
     }
   };
@@ -505,7 +570,10 @@ const HADQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToTFEQ }) => {
         alert('¡Correo enviado exitosamente al médico con todos los datos del cuestionario!');
         setTimeout(() => {
           setEmailSent(false);
-        }, 3000);
+          if (onComplete) {
+            onComplete();
+          }
+        }, 1500);
       } else {
         alert('Error al enviar el correo. Por favor intente nuevamente.');
         console.error('Error:', result.error);
@@ -709,9 +777,31 @@ const HADQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToTFEQ }) => {
     );
   }
 
+  // Pantalla de animación de completado (cuando no se muestra resultado)
+  if (showCompletionAnimation) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="relative inline-block">
+            <CheckCircle className="w-32 h-32 text-purple-500 animate-bounce" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-32 h-32 border-4 border-purple-500 rounded-full animate-ping opacity-75"></div>
+            </div>
+          </div>
+          <h2 className="text-3xl font-bold text-gray-800 mt-6 mb-2">
+            ¡Cuestionario Completado!
+          </h2>
+          <p className="text-gray-600">
+            Pasando al siguiente cuestionario...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (showResult) {
     return (
-      <div className="min-h-screen bg-white flex flex-col">
+      <div className="min-h-screen bg-gray-50 flex flex-col">
         {/* Navigation Bar */}
         <div className="w-full bg-white shadow-sm border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 py-3">
@@ -933,51 +1023,26 @@ const HADQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToTFEQ }) => {
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f9fafb' }}>
       {/* Navigation Bar */}
-      <div className="fixed top-0 left-0 w-full z-50 bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between min-h-[80px]">
-            <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center">
-                <Brain className="w-7 h-7 text-purple-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800">Cuestionario HAD</h1>
-                <p className="text-base text-gray-500">Evaluación de ansiedad y depresión</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 flex-col sm:flex-row w-full sm:w-auto mt-4 sm:mt-0">
-              <button
-                onClick={() => setAccessibilityMode((prev) => !prev)}
-                className={`flex items-center justify-center gap-2 w-full sm:w-auto sm:px-4 sm:py-2 px-2 py-2 rounded-xl transition-all duration-300 font-semibold sm:text-lg text-base shadow ${accessibilityMode ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                title="Activar/desactivar accesibilidad"
-              >
-                {/* Ícono de accesibilidad personalizado */}
-                <img
-                  src="/1-a4575525.png"
-                  alt="Accesibilidad"
-                  className="h-7 w-7 sm:h-6 sm:w-6 object-contain"
-                  style={{ filter: accessibilityMode ? 'grayscale(0%)' : 'grayscale(60%)', opacity: accessibilityMode ? 1 : 0.7 }}
-                />
-                <span className="hidden sm:inline">{accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}</span>
-                <span className="inline sm:hidden text-xs">{accessibilityMode ? 'ON' : 'OFF'}</span>
-              </button>
-              <button
-                onClick={goBackToHome}
-                className="flex items-center justify-center gap-2 w-full sm:w-auto sm:px-6 sm:py-3 px-2 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all duration-300 font-semibold sm:text-lg text-base shadow"
-              >
-                <Home className="w-7 h-7 sm:w-6 sm:h-6" />
-                <span className="hidden sm:inline">Volver al Inicio</span>
-                <span className="inline sm:hidden text-xs">Inicio</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <QuestionnaireNavBar
+        icon={Brain}
+        title="Cuestionario HAD"
+        subtitle="Evaluación de ansiedad y depresión"
+        iconBgColor="bg-purple-100"
+        iconColor="text-purple-600"
+        accessibilityMode={accessibilityMode}
+        onToggleAccessibility={() => setAccessibilityMode((prev) => !prev)}
+        onGoHome={goBackToHome}
+        accessibilityBgColor="bg-purple-100"
+        accessibilityTextColor="text-purple-700"
+      />
+
+      {/* Progress Bar - Solo se muestra si está en el flujo */}
+      {progressBar && progressBar}
 
       {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center p-4" style={{ paddingTop: '110px' }}>
+      <div className="flex-1 flex items-center justify-center p-4" style={{ paddingTop: progressBar ? '150px' : '80px' }}>
         <div className="max-w-2xl w-full">
           <div className="bg-white rounded-3xl shadow-2xl p-8 space-y-8">
             {/* Header */}
@@ -1001,7 +1066,7 @@ const HADQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToTFEQ }) => {
             </div>
 
             {/* Question Card */}
-            <div className="bg-gray-50 rounded-2xl p-8 space-y-6 border border-gray-200">
+            <div className="rounded-2xl p-8 space-y-6 border border-gray-200 shadow-lg" style={{ backgroundColor: '#f9fafb' }}>
               <div className="space-y-4">
                 <div className="text-center">
                   <div className="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">

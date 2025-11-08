@@ -1,10 +1,10 @@
 import './App.css'
-import NutritionDashboard from './components/NutritionDashboard'
+import QuestionnaireFlow from './components/QuestionnaireFlow'
 
 function App() {
   return (
     <div>
-      <NutritionDashboard />
+      <QuestionnaireFlow />
     </div>
   );
 }

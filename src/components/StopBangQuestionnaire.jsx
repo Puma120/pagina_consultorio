@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { evaluateStopBang } from '../utils/stopbangEvaluator';
 import { sendEmailWithAttachment, generateCSVString, createCSVAttachment } from '../utils/emailService';
+import QuestionnaireNavBar from './QuestionnaireNavBar';
 
 const questions = [
   { id: 'snoring', text: '¿Ronca fuerte?', category: 'S - Snoring', icon: Volume2 },
@@ -17,14 +18,15 @@ const questions = [
   { id: 'gender', text: '¿Su género es masculino?', category: 'G - Gender', icon: User },
 ];
 
-const StopBangQuestionnaire = ({ onGoToHome, onGoToHAD, onGoToTFEQ }) => {
+const StopBangQuestionnaire = ({ onGoToHome, onGoToHAD, onGoToTFEQ, patientInfo: externalPatientInfo, onComplete, hidePatientForm = false, progressBar, showResultScreen = true }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState({});
   const [isComplete, setIsComplete] = useState(false);
   const [showResult, setShowResult] = useState(false);
-  const [showPatientInfo, setShowPatientInfo] = useState(true);
-  const [patientInfo, setPatientInfo] = useState({ 
+  const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
+  const [showPatientInfo, setShowPatientInfo] = useState(!hidePatientForm && !externalPatientInfo);
+  const [patientInfo, setPatientInfo] = useState(externalPatientInfo || { 
     name: '', 
     age: '', 
     gender: '' 
@@ -112,9 +114,27 @@ const StopBangQuestionnaire = ({ onGoToHome, onGoToHAD, onGoToTFEQ }) => {
       setTimeout(() => setCurrent(current + 1), 300);
     } else {
       setIsComplete(true);
-      setTimeout(() => {
-        setShowResult(true);
-      }, 500);
+      
+      if (showResultScreen) {
+        // Mostrar pantalla de resultados normal
+        setTimeout(() => {
+          setShowResult(true);
+        }, 500);
+      } else {
+        // Mostrar animación de completado y luego continuar
+        setShowCompletionAnimation(true);
+        const evaluation = evaluateStopBang(newAnswers);
+        
+        setTimeout(() => {
+          if (onComplete) {
+            onComplete({
+              answers: newAnswers,
+              evaluation: evaluation,
+              patientInfo: patientInfo
+            });
+          }
+        }, 2000);
+      }
     }
   };
 
@@ -205,7 +225,10 @@ const StopBangQuestionnaire = ({ onGoToHome, onGoToHAD, onGoToTFEQ }) => {
         alert('¡Correo enviado exitosamente al médico con todos los datos del cuestionario!');
         setTimeout(() => {
           setEmailSent(false);
-        }, 3000);
+          if (onComplete) {
+            onComplete();
+          }
+        }, 1500);
       } else {
         alert('Error al enviar el correo. Por favor intente nuevamente.');
         console.error('Error:', result.error);
@@ -455,52 +478,49 @@ const StopBangQuestionnaire = ({ onGoToHome, onGoToHAD, onGoToTFEQ }) => {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-white flex flex-col">
-      {/* Navigation Bar */}
-      <div className="fixed top-0 left-0 w-full z-50 bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between min-h-[80px]">
-            <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center">
-                <Moon className="w-7 h-7 text-blue-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800">Cuestionario STOP-Bang</h1>
-                <p className="text-base text-gray-500">Evaluación de riesgo de apnea del sueño</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 sm:gap-3 gap-1 flex-col sm:flex-row w-full sm:w-auto mt-4 sm:mt-0">
-              <button
-                onClick={() => setAccessibilityMode((prev) => !prev)}
-                className={`flex items-center justify-center gap-2 w-full sm:w-auto sm:px-4 sm:py-2 px-2 py-2 rounded-xl transition-all duration-300 font-semibold sm:text-lg text-base shadow ${accessibilityMode ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                title="Activar/desactivar accesibilidad"
-              >
-                {/* Ícono de accesibilidad personalizado */}
-                <img
-                  src="/1-a4575525.png"
-                  alt="Accesibilidad"
-                  className="h-7 w-7 sm:h-6 sm:w-6 object-contain"
-                  style={{ filter: accessibilityMode ? 'grayscale(0%)' : 'grayscale(60%)', opacity: accessibilityMode ? 1 : 0.7 }}
-                />
-                <span className="hidden sm:inline">{accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}</span>
-                <span className="inline sm:hidden text-xs">{accessibilityMode ? 'ON' : 'OFF'}</span>
-              </button>
-              <button
-                onClick={goBackToHome}
-                className="flex items-center justify-center gap-2 w-full sm:w-auto sm:px-6 sm:py-3 px-2 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all duration-300 font-semibold sm:text-lg text-base shadow"
-              >
-                <Home className="w-7 h-7 sm:w-6 sm:h-6" />
-                <span className="hidden sm:inline">Volver al Inicio</span>
-                <span className="inline sm:hidden text-xs">Inicio</span>
-              </button>
+  // Pantalla de animación de completado (cuando no se muestra resultado)
+  if (showCompletionAnimation) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="relative inline-block">
+            <CheckCircle className="w-32 h-32 text-green-500 animate-bounce" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-32 h-32 border-4 border-green-500 rounded-full animate-ping opacity-75"></div>
             </div>
           </div>
+          <h2 className="text-3xl font-bold text-gray-800 mt-6 mb-2">
+            ¡Cuestionario Completado!
+          </h2>
+          <p className="text-gray-600">
+            Pasando al siguiente cuestionario...
+          </p>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Navigation Bar */}
+      <QuestionnaireNavBar
+        icon={Moon}
+        title="Cuestionario STOP-Bang"
+        subtitle="Evaluación de riesgo de apnea del sueño"
+        iconBgColor="bg-blue-100"
+        iconColor="text-blue-600"
+        accessibilityMode={accessibilityMode}
+        onToggleAccessibility={() => setAccessibilityMode((prev) => !prev)}
+        onGoHome={goBackToHome}
+        accessibilityBgColor="bg-blue-100"
+        accessibilityTextColor="text-blue-700"
+      />
+
+      {/* Progress Bar - Solo se muestra si está en el flujo */}
+      {progressBar && progressBar}
 
       {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center p-4" style={{ paddingTop: '110px' }}>
+      <div className="flex-1 flex items-center justify-center p-4" style={{ paddingTop: progressBar ? '150px' : '80px' }}>
         {showResult ? (
           <div className="max-w-4xl w-full">
             <div className="bg-white rounded-3xl shadow-2xl p-8 space-y-8 animate-fade-in">

@@ -3,6 +3,7 @@ import {
   CheckCircle, AlertCircle, Download, ArrowLeft, Utensils, Scale, Heart, Brain, User, Home, Mail, Clock, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { sendEmailWithAttachment, generateCSVString, createCSVAttachment } from '../utils/emailService';
+import QuestionnaireNavBar from './QuestionnaireNavBar';
 
 const questions = [
   {
@@ -207,14 +208,15 @@ const getAnswerOptions = (questionType, questionId) => {
   }
 };
 
-const TFEQQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToHAD }) => {
+const TFEQQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToHAD, patientInfo: externalPatientInfo, onComplete, hidePatientForm = false, progressBar, showResultScreen = true }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState({});
   const [isComplete, setIsComplete] = useState(false);
   const [showResult, setShowResult] = useState(false);
-  const [showPatientInfo, setShowPatientInfo] = useState(true);
-  const [patientInfo, setPatientInfo] = useState({
+  const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
+  const [showPatientInfo, setShowPatientInfo] = useState(!hidePatientForm && !externalPatientInfo);
+  const [patientInfo, setPatientInfo] = useState(externalPatientInfo || {
     name: '',
     age: '',
     gender: ''
@@ -298,12 +300,52 @@ const TFEQQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToHAD }) => {
       setTimeout(() => setCurrent(current + 1), 300);
     } else {
       setIsComplete(true);
-      setTimeout(() => {
-        setShowResult(true);
-      }, 500);
+      
+      if (showResultScreen) {
+        // Mostrar pantalla de resultados normal
+        setTimeout(() => {
+          setShowResult(true);
+        }, 500);
+      } else {
+        // Mostrar animación de completado y luego continuar
+        setShowCompletionAnimation(true);
+        const { cognitiveScore, uncontrolledScore, emotionalScore } = calculateScores(newAnswers);
+        
+        // Puntajes máximos para cada escala
+        const cognitiveData = getScoreLevel(cognitiveScore, 24, 'Restricción cognitiva');
+        const uncontrolledData = getScoreLevel(uncontrolledScore, 36, 'Alimentación descontrolada');
+        const emotionalData = getScoreLevel(emotionalScore, 12, 'Alimentación emocional');
+        
+        setTimeout(() => {
+          if (onComplete) {
+            onComplete({
+              answers: newAnswers,
+              scores: {
+                cognitive: {
+                  score: cognitiveScore,
+                  level: cognitiveData.level,
+                  interpretation: cognitiveData.description
+                },
+                uncontrolled: {
+                  score: uncontrolledScore,
+                  level: uncontrolledData.level,
+                  interpretation: uncontrolledData.description
+                },
+                emotional: {
+                  score: emotionalScore,
+                  level: emotionalData.level,
+                  interpretation: emotionalData.description
+                }
+              },
+              patientInfo: patientInfo
+            });
+          }
+        }, 2000);
+      }
     }
   };
-  const calculateScores = () => {
+  
+  const calculateScores = (answersToEvaluate = answers) => {
     let cognitiveScore = 0;
     let uncontrolledScore = 0;
     let emotionalScore = 0;
@@ -317,7 +359,7 @@ const TFEQQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToHAD }) => {
 
     // Calculate cognitive restraint score
     cognitiveItems.forEach(itemId => {
-      const answer = answers[itemId];
+      const answer = answersToEvaluate[itemId];
       if (answer !== undefined) {
         cognitiveScore += answer;
       }
@@ -325,7 +367,7 @@ const TFEQQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToHAD }) => {
 
     // Calculate uncontrolled eating score
     uncontrolledItems.forEach(itemId => {
-      const answer = answers[itemId];
+      const answer = answersToEvaluate[itemId];
       if (answer !== undefined) {
         uncontrolledScore += answer;
       }
@@ -333,7 +375,7 @@ const TFEQQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToHAD }) => {
 
     // Calculate emotional eating score
     emotionalItems.forEach(itemId => {
-      const answer = answers[itemId];
+      const answer = answersToEvaluate[itemId];
       if (answer !== undefined) {
         emotionalScore += answer;
       }
@@ -347,14 +389,87 @@ const TFEQQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToHAD }) => {
                      scaleName === 'Alimentación descontrolada' ? 9 : 3;
     const percentage = ((score - minScore) / (maxScore - minScore)) * 100;
     
-    if (percentage >= 75) {
-      return { level: 'Alto', color: 'red', description: `${scaleName} alta` };
-    } else if (percentage >= 50) {
-      return { level: 'Moderado-Alto', color: 'orange', description: `${scaleName} moderada-alta` };
-    } else if (percentage >= 25) {
-      return { level: 'Moderado', color: 'yellow', description: `${scaleName} moderada` };
+    if (scaleName === 'Restricción cognitiva') {
+      // Restricción Cognitiva (rango 6-24)
+      if (percentage >= 75) {
+        return { 
+          level: 'Alto', 
+          color: 'red', 
+          description: 'Nivel alto de restricción cognitiva. Indica un control consciente rígido y excesivo sobre la ingesta de alimentos, con preocupación constante por el peso y la dieta. Este nivel elevado de restricción puede asociarse con pensamientos obsesivos sobre la comida, reglas alimentarias estrictas y alto riesgo de episodios de pérdida de control. Se recomienda evaluación nutricional y psicológica para desarrollar estrategias de alimentación más flexibles y saludables que eviten ciclos restrictivos.'
+        };
+      } else if (percentage >= 50) {
+        return { 
+          level: 'Moderado-Alto', 
+          color: 'orange', 
+          description: 'Nivel moderado-alto de restricción cognitiva. Refleja un control consciente frecuente sobre la alimentación con preocupación regular por el peso corporal. Puede manifestarse en evitación de ciertos alimentos, preocupación por las porciones y planificación constante de las comidas. Se recomienda trabajar en flexibilidad cognitiva y desarrollar una relación más equilibrada con la comida, posiblemente con apoyo de nutricionista.'
+        };
+      } else if (percentage >= 25) {
+        return { 
+          level: 'Moderado', 
+          color: 'yellow', 
+          description: 'Nivel moderado de restricción cognitiva. Indica un control consciente ocasional sobre la ingesta alimentaria y preocupación intermitente por el peso. Este nivel puede ser adaptativo en ciertos contextos, pero es importante mantener flexibilidad y evitar rigidez excesiva. Se recomienda atención consciente a las señales de hambre y saciedad.'
+        };
+      } else {
+        return { 
+          level: 'Bajo', 
+          color: 'green', 
+          description: 'Nivel bajo de restricción cognitiva. Refleja una relación relativamente espontánea con la comida, sin preocupación excesiva por el control del peso o restricción alimentaria consciente. La persona tiende a comer guiándose más por señales internas de hambre y saciedad que por reglas dietéticas externas. Esto generalmente se asocia con patrones alimentarios más intuitivos.'
+        };
+      }
+    } else if (scaleName === 'Alimentación descontrolada') {
+      // Alimentación Descontrolada (rango 9-36)
+      if (percentage >= 75) {
+        return { 
+          level: 'Alto', 
+          color: 'red', 
+          description: 'Nivel alto de alimentación descontrolada. Indica pérdida frecuente del control sobre la ingesta, con episodios recurrentes de sobrealimentación y dificultad significativa para detener el consumo de alimentos una vez iniciado. Puede estar asociado con respuestas intensas a estímulos alimentarios externos (olor, vista, situaciones sociales) y hambre aparentemente insaciable. Este patrón requiere atención profesional para identificar desencadenantes, trabajar estrategias de regulación y evaluar posible trastorno de alimentación compulsiva.'
+        };
+      } else if (percentage >= 50) {
+        return { 
+          level: 'Moderado-Alto', 
+          color: 'orange', 
+          description: 'Nivel moderado-alto de alimentación descontrolada. Refleja dificultad frecuente para controlar la cantidad de comida ingerida, con episodios regulares donde resulta difícil parar de comer. La persona puede sentirse influenciada fácilmente por la presencia de comida o por situaciones sociales de alimentación. Se recomienda evaluación nutricional y psicológica para desarrollar habilidades de autorregulación, identificar patrones desencadenantes y trabajar en estrategias de control consciente.'
+        };
+      } else if (percentage >= 25) {
+        return { 
+          level: 'Moderado', 
+          color: 'yellow', 
+          description: 'Nivel moderado de alimentación descontrolada. Indica episodios ocasionales de dificultad para controlar la ingesta, especialmente en presencia de alimentos muy apetecibles o en situaciones sociales. Puede experimentar hambre frecuente o dificultad moderada para detener el consumo. Se recomienda trabajar en reconocimiento de señales de saciedad y estrategias de alimentación consciente.'
+        };
+      } else {
+        return { 
+          level: 'Bajo', 
+          color: 'green', 
+          description: 'Nivel bajo de alimentación descontrolada. Refleja buen control sobre la ingesta alimentaria, con capacidad para regular la cantidad de comida consumida y detener el consumo cuando está satisfecho. La persona no experimenta sensaciones frecuentes de hambre insaciable ni pérdida de control ante estímulos alimentarios. Esto indica regulación saludable del apetito y la saciedad.'
+        };
+      }
     } else {
-      return { level: 'Bajo', color: 'green', description: `${scaleName} baja` };
+      // Alimentación Emocional (rango 3-12)
+      if (percentage >= 75) {
+        return { 
+          level: 'Alto', 
+          color: 'red', 
+          description: 'Nivel alto de alimentación emocional. Indica uso frecuente de la comida como mecanismo de afrontamiento ante emociones negativas (tristeza, ansiedad, soledad, estrés). Este patrón puede interferir con el reconocimiento de señales reales de hambre y saciedad, además de limitar el desarrollo de estrategias de regulación emocional más adaptativas. Se recomienda enfáticamente trabajar con profesional de salud mental para identificar emociones desencadenantes, desarrollar habilidades de regulación emocional alternativas y mejorar la conciencia emocional.'
+        };
+      } else if (percentage >= 50) {
+        return { 
+          level: 'Moderado-Alto', 
+          color: 'orange', 
+          description: 'Nivel moderado-alto de alimentación emocional. Refleja tendencia frecuente a comer en respuesta a emociones negativas como forma de consuelo o distracción. La persona puede recurrir a la comida regularmente cuando se siente ansiosa, triste o sola. Se recomienda trabajar en identificación de emociones, desarrollo de estrategias alternativas de afrontamiento (ejercicio, actividades placenteras, apoyo social) y consulta con nutricionista o psicólogo especializado.'
+        };
+      } else if (percentage >= 25) {
+        return { 
+          level: 'Moderado', 
+          color: 'yellow', 
+          description: 'Nivel moderado de alimentación emocional. Indica tendencia ocasional a comer en respuesta a estados emocionales negativos. La persona puede recurrir a la comida en situaciones específicas de estrés o malestar emocional. Se recomienda desarrollar conciencia sobre la relación entre emociones y alimentación, y practicar estrategias de manejo emocional alternativas.'
+        };
+      } else {
+        return { 
+          level: 'Bajo', 
+          color: 'green', 
+          description: 'Nivel bajo de alimentación emocional. Indica que la persona generalmente no utiliza la comida como respuesta principal a estados emocionales negativos. Mantiene diferenciación entre hambre física y necesidades emocionales, utilizando estrategias de afrontamiento más adaptativas ante situaciones de estrés o malestar. Esto refleja una relación saludable entre emociones y alimentación.'
+        };
+      }
     }
   };
 
@@ -455,7 +570,10 @@ const TFEQQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToHAD }) => {
         alert('¡Correo enviado exitosamente al médico con todos los datos del cuestionario!');
         setTimeout(() => {
           setEmailSent(false);
-        }, 3000);
+          if (onComplete) {
+            onComplete();
+          }
+        }, 1500);
       } else {
         alert('Error al enviar el correo. Por favor intente nuevamente.');
         console.error('Error:', result.error);
@@ -675,9 +793,31 @@ const TFEQQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToHAD }) => {
     );
   }
 
+  // Pantalla de animación de completado (cuando no se muestra resultado)
+  if (showCompletionAnimation) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="relative inline-block">
+            <CheckCircle className="w-32 h-32 text-green-500 animate-bounce" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-32 h-32 border-4 border-green-500 rounded-full animate-ping opacity-75"></div>
+            </div>
+          </div>
+          <h2 className="text-3xl font-bold text-gray-800 mt-6 mb-2">
+            ¡Todos los Cuestionarios Completados!
+          </h2>
+          <p className="text-gray-600">
+            Preparando resultados finales...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (showResult) {
     return (
-      <div className="min-h-screen bg-white flex flex-col">
+      <div className="min-h-screen bg-gray-50 flex flex-col">
         {/* Navigation Bar */}
         <div className="fixed top-0 left-0 w-full z-50 bg-white shadow-sm border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-6 py-6">
@@ -956,51 +1096,26 @@ const TFEQQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToHAD }) => {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f9fafb' }}>
       {/* Navigation Bar */}
-      <div className="fixed top-0 left-0 w-full z-50 bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between min-h-[80px]">
-            <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center">
-                <Utensils className="w-7 h-7 text-green-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800">Cuestionario TFEQ-R18</h1>
-                <p className="text-base text-gray-500">Inventario de Alimentación de Tres Factores</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 flex-col sm:flex-row w-full sm:w-auto mt-4 sm:mt-0">
-              <button
-                onClick={() => setAccessibilityMode((prev) => !prev)}
-                className={`flex items-center justify-center gap-2 w-full sm:w-auto sm:px-4 sm:py-2 px-2 py-2 rounded-xl transition-all duration-300 font-semibold sm:text-lg text-base shadow ${accessibilityMode ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                title="Activar/desactivar accesibilidad"
-              >
-                {/* Ícono de accesibilidad personalizado */}
-                <img
-                  src="/1-a4575525.png"
-                  alt="Accesibilidad"
-                  className="h-7 w-7 sm:h-6 sm:w-6 object-contain"
-                  style={{ filter: accessibilityMode ? 'grayscale(0%)' : 'grayscale(60%)', opacity: accessibilityMode ? 1 : 0.7 }}
-                />
-                <span className="hidden sm:inline">{accessibilityMode ? 'Accesibilidad ON' : 'Accesibilidad OFF'}</span>
-                <span className="inline sm:hidden text-xs">{accessibilityMode ? 'ON' : 'OFF'}</span>
-              </button>
-              <button
-                onClick={goBackToHome}
-                className="flex items-center justify-center gap-2 w-full sm:w-auto sm:px-6 sm:py-3 px-2 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all duration-300 font-semibold sm:text-lg text-base shadow"
-              >
-                <Home className="w-7 h-7 sm:w-6 sm:h-6" />
-                <span className="hidden sm:inline">Volver al Inicio</span>
-                <span className="inline sm:hidden text-xs">Inicio</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <QuestionnaireNavBar
+        icon={Utensils}
+        title="Cuestionario TFEQ-R18"
+        subtitle="Inventario de Alimentación de Tres Factores"
+        iconBgColor="bg-green-100"
+        iconColor="text-green-600"
+        accessibilityMode={accessibilityMode}
+        onToggleAccessibility={() => setAccessibilityMode((prev) => !prev)}
+        onGoHome={goBackToHome}
+        accessibilityBgColor="bg-green-100"
+        accessibilityTextColor="text-green-700"
+      />
+
+      {/* Progress Bar - Solo se muestra si está en el flujo */}
+      {progressBar && progressBar}
 
       {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center p-4" style={{ paddingTop: '110px' }}>
+      <div className="flex-1 flex items-center justify-center p-4" style={{ paddingTop: progressBar ? '150px' : '80px' }}>
         <div className="max-w-2xl w-full">
           <div className="bg-white rounded-3xl shadow-2xl p-8 space-y-8">
             {/* Header */}
@@ -1024,7 +1139,7 @@ const TFEQQuestionnaire = ({ onGoToHome, onGoToStopBang, onGoToHAD }) => {
             </div>
 
             {/* Question Card */}
-            <div className="bg-gray-50 rounded-2xl p-8 space-y-6 border border-gray-200">
+            <div className="rounded-2xl p-8 space-y-6 border border-gray-200 shadow-lg" style={{ backgroundColor: '#f9fafb' }}>
               <div className="space-y-4">
                 <div className="text-center">
                   <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
