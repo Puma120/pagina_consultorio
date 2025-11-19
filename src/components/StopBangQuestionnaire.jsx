@@ -484,9 +484,9 @@ const StopBangQuestionnaire = ({ onGoToHome, onGoToHAD, onGoToTFEQ, patientInfo:
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center">
           <div className="relative inline-block">
-            <CheckCircle className="w-32 h-32 text-green-500 animate-bounce" />
+            <CheckCircle className="w-32 h-32 text-blue-500 animate-bounce" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-32 h-32 border-4 border-green-500 rounded-full animate-ping opacity-75"></div>
+              <div className="w-32 h-32 border-4 border-blue-500 rounded-full animate-ping opacity-75"></div>
             </div>
           </div>
           <h2 className="text-3xl font-bold text-gray-800 mt-6 mb-2">
