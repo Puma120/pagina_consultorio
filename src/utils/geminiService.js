@@ -37,7 +37,7 @@ export const evaluateHandGripStrength = async (patientData, tablesData) => {
     }
 
     // Usar el modelo Gemini 2.5 Flash (rápido, eficiente y con cuota disponible)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3-pro-preview" });
 
     // Construir el prompt refinado
     const prompt = `Eres un asistente médico especializado en evaluación de fuerza de agarre. Dispones de las siguientes tablas de referencia científicas del estudio Tomkinson et al. 2025:
