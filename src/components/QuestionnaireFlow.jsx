@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
-import { User, Calendar, UserCircle, CheckCircle, Moon, Brain, Utensils, Home, Download, Mail, FileText } from 'lucide-react';
+import { User, Calendar, UserCircle, CheckCircle, Moon, Brain, Utensils, Home, Download, Mail, Hand } from 'lucide-react';
 import StopBangQuestionnaire from './StopBangQuestionnaire';
 import HADQuestionnaire from './HADQuestionnaire';
 import TFEQQuestionnaire from './TFEQQuestionnaire';
+import HandGripQuestionnaire from './HandGripQuestionnaire';
 import { sendEmailWithAttachment, generateCSVString } from '../utils/emailService';
 import { evaluateStopBang } from '../utils/stopbangEvaluator';
 import jsPDF from 'jspdf';
 
 const QuestionnaireFlow = () => {
-  const [step, setStep] = useState('patient-data'); // patient-data, stopbang, had, tfeq, complete
+  const [step, setStep] = useState('patient-data'); // patient-data, stopbang, had, tfeq, handgrip, complete
   const [patientData, setPatientData] = useState({ name: '', age: '', gender: '' });
   const [questionnaireResults, setQuestionnaireResults] = useState({
     stopbang: null,
     had: null,
-    tfeq: null
+    tfeq: null,
+    handgrip: null
   });
   const [isEmailSending, setIsEmailSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -22,220 +24,9 @@ const QuestionnaireFlow = () => {
   const steps = [
     { id: 'stopbang', name: 'STOP-Bang', icon: Moon, color: 'blue' },
     { id: 'had', name: 'HAD', icon: Brain, color: 'purple' },
-    { id: 'tfeq', name: 'TFEQ-R18', icon: Utensils, color: 'green' }
+    { id: 'tfeq', name: 'TFEQ-R18', icon: Utensils, color: 'green' },
+    { id: 'handgrip', name: 'Fuerza de Agarre', icon: Hand, color: 'orange' }
   ];
-
-  // Función para determinar el color del semáforo según el nivel de riesgo
-  const getRiskColor = (questionnaireId) => {
-    if (!questionnaireResults[questionnaireId]) return 'gray';
-
-    if (questionnaireId === 'stopbang') {
-      const score = questionnaireResults.stopbang.evaluation.score;
-      if (score <= 2) return 'green'; // Bajo riesgo
-      if (score <= 4) return 'yellow'; // Riesgo intermedio
-      return 'red'; // Alto riesgo
-    }
-
-    if (questionnaireId === 'had') {
-      const anxietyScore = questionnaireResults.had.scores.anxiety.score;
-      const depressionScore = questionnaireResults.had.scores.depression.score;
-      const maxScore = Math.max(anxietyScore, depressionScore);
-      
-      if (maxScore <= 7) return 'green'; // Normal
-      if (maxScore <= 10) return 'yellow'; // Borderline
-      return 'red'; // Anormal
-    }
-
-    if (questionnaireId === 'tfeq') {
-      const cognitiveScore = questionnaireResults.tfeq.scores.cognitive.score;
-      const uncontrolledScore = questionnaireResults.tfeq.scores.uncontrolled.score;
-      const emotionalScore = questionnaireResults.tfeq.scores.emotional.score;
-      
-      // Determinar si algún score está en rango alto
-      const hasHighRisk = 
-        (cognitiveScore >= 14) || 
-        (uncontrolledScore >= 27) || 
-        (emotionalScore >= 8);
-      
-      const hasMediumRisk = 
-        (cognitiveScore >= 10 && cognitiveScore < 14) || 
-        (uncontrolledScore >= 20 && uncontrolledScore < 27) || 
-        (emotionalScore >= 5 && emotionalScore < 8);
-      
-      if (hasHighRisk) return 'red';
-      if (hasMediumRisk) return 'yellow';
-      return 'green';
-    }
-
-    return 'gray';
-  };
-
-  const getRiskLevel = (questionnaireId) => {
-    if (!questionnaireResults[questionnaireId]) return 'low';
-
-    if (questionnaireId === 'stopbang') {
-      const score = questionnaireResults.stopbang.evaluation.score;
-      if (score <= 2) return 'low'; // Bajo riesgo
-      if (score <= 4) return 'medium'; // Riesgo intermedio
-      return 'high'; // Alto riesgo
-    }
-
-    if (questionnaireId === 'had') {
-      const anxietyScore = questionnaireResults.had.scores.anxiety.score;
-      const depressionScore = questionnaireResults.had.scores.depression.score;
-      const maxScore = Math.max(anxietyScore, depressionScore);
-      
-      if (maxScore <= 7) return 'low'; // Normal
-      if (maxScore <= 10) return 'medium'; // Borderline
-      return 'high'; // Anormal
-    }
-
-    if (questionnaireId === 'tfeq') {
-      const cognitiveScore = questionnaireResults.tfeq.scores.cognitive.score;
-      const uncontrolledScore = questionnaireResults.tfeq.scores.uncontrolled.score;
-      const emotionalScore = questionnaireResults.tfeq.scores.emotional.score;
-      
-      // Determinar si algún score está en rango alto
-      const hasHighRisk = 
-        (cognitiveScore >= 14) || 
-        (uncontrolledScore >= 27) || 
-        (emotionalScore >= 8);
-      
-      const hasMediumRisk = 
-        (cognitiveScore >= 10 && cognitiveScore < 14) || 
-        (uncontrolledScore >= 20 && uncontrolledScore < 27) || 
-        (emotionalScore >= 5 && emotionalScore < 8);
-      
-      if (hasHighRisk) return 'high';
-      if (hasMediumRisk) return 'medium';
-      return 'low';
-    }
-
-    return 'low';
-  };
-
-  const getRiskLevelText = (questionnaireId) => {
-    const level = getRiskLevel(questionnaireId);
-    
-    if (questionnaireId === 'stopbang') {
-      if (level === 'low') return 'Bajo Riesgo';
-      if (level === 'medium') return 'Riesgo Intermedio';
-      return 'Alto Riesgo';
-    }
-    
-    if (questionnaireId === 'had') {
-      if (level === 'low') return 'Normal';
-      if (level === 'medium') return 'Borderline';
-      return 'Anormal';
-    }
-    
-    if (questionnaireId === 'tfeq') {
-      if (level === 'low') return 'Bajo';
-      if (level === 'medium') return 'Moderado';
-      return 'Alto';
-    }
-    
-    return 'No especificado';
-  };
-
-  // Componente termómetro
-  const Thermometer = ({ level }) => {
-    const getFillPercentage = (level) => {
-      switch (level) {
-        case 'low':
-          return 33;
-        case 'medium':
-          return 66;
-        case 'high':
-          return 100;
-        default:
-          return 0;
-      }
-    };
-
-    const getGradientStops = (level) => {
-      // El degradado se ajusta según el nivel de riesgo
-      // Para que la punta del relleno tenga el color correspondiente
-      switch (level) {
-        case 'low':
-          // Solo va de verde a un verde más claro
-          return {
-            start: '#22c55e',
-            end: '#4ade80'
-          };
-        case 'medium':
-          // Va de verde a amarillo
-          return {
-            start: '#22c55e',
-            end: '#eab308'
-          };
-        case 'high':
-          // Va de verde a amarillo a rojo
-          return {
-            start: '#22c55e',
-            mid: '#eab308',
-            end: '#ef4444'
-          };
-        default:
-          return {
-            start: '#9ca3af',
-            end: '#9ca3af'
-          };
-      }
-    };
-
-    const percentage = getFillPercentage(level);
-    const fillHeight = (percentage / 100) * 140; // 140 es la altura del tubo
-    const gradientId = `thermometer-gradient-${level}`;
-    const gradientStops = getGradientStops(level);
-
-    return (
-      <div style={{ width: '60px', height: '180px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <svg width="60" height="180" viewBox="0 0 60 180" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            {/* Degradado dinámico según el nivel de riesgo */}
-            <linearGradient id={gradientId} x1="0%" y1="100%" x2="0%" y2="0%">
-              <stop offset="0%" style={{ stopColor: gradientStops.start, stopOpacity: 1 }} />
-              {gradientStops.mid && (
-                <stop offset="50%" style={{ stopColor: gradientStops.mid, stopOpacity: 1 }} />
-              )}
-              <stop offset="100%" style={{ stopColor: gradientStops.end, stopOpacity: 1 }} />
-            </linearGradient>
-          </defs>
-          
-          {/* Tubo exterior del termómetro */}
-          <rect x="20" y="10" width="20" height="140" rx="10" fill="#f3f4f6" stroke="#374151" strokeWidth="2"/>
-          
-          {/* Bulbo del termómetro */}
-          <circle cx="30" cy="160" r="18" fill="#f3f4f6" stroke="#374151" strokeWidth="2"/>
-          
-          {/* Relleno del bulbo siempre verde */}
-          <circle cx="30" cy="160" r="14" fill="#22c55e"/>
-          
-          {/* Relleno del tubo (de abajo hacia arriba) con degradado */}
-          <rect 
-            x="24" 
-            y={150 - fillHeight} 
-            width="12" 
-            height={fillHeight} 
-            fill={`url(#${gradientId})`}
-            rx="6"
-          />
-          
-          {/* Marcas de medición */}
-          <line x1="40" y1="30" x2="45" y2="30" stroke="#6b7280" strokeWidth="1.5"/>
-          <line x1="40" y1="50" x2="43" y2="50" stroke="#9ca3af" strokeWidth="1"/>
-          <line x1="40" y1="70" x2="45" y2="70" stroke="#6b7280" strokeWidth="1.5"/>
-          <line x1="40" y1="90" x2="43" y2="90" stroke="#9ca3af" strokeWidth="1"/>
-          <line x1="40" y1="110" x2="45" y2="110" stroke="#6b7280" strokeWidth="1.5"/>
-          <line x1="40" y1="130" x2="43" y2="130" stroke="#9ca3af" strokeWidth="1"/>
-          
-          {/* Tubo interior para efecto de profundidad */}
-          <rect x="24" y="15" width="12" height="135" rx="6" fill="none" stroke="#d1d5db" strokeWidth="1" opacity="0.5"/>
-        </svg>
-      </div>
-    );
-  };
 
   const handlePatientSubmit = (e) => {
     e.preventDefault();
@@ -254,7 +45,8 @@ const QuestionnaireFlow = () => {
     // Avanzar al siguiente paso
     if (step === 'stopbang') setStep('had');
     else if (step === 'had') setStep('tfeq');
-    else if (step === 'tfeq') setStep('complete');
+    else if (step === 'tfeq') setStep('handgrip');
+    else if (step === 'handgrip') setStep('complete');
   };
 
   const handleRestart = () => {
@@ -263,7 +55,8 @@ const QuestionnaireFlow = () => {
     setQuestionnaireResults({
       stopbang: null,
       had: null,
-      tfeq: null
+      tfeq: null,
+      handgrip: null
     });
     setEmailSent(false);
   };
@@ -329,6 +122,24 @@ const QuestionnaireFlow = () => {
       csvContent += `Interpretación:,"${tfeq.scores.emotional.interpretation}"\n\n`;
     }
     
+    // Fuerza de Agarre
+    if (questionnaireResults.handgrip && questionnaireResults.handgrip.evaluation) {
+      const handgrip = questionnaireResults.handgrip;
+      csvContent += '=== EVALUACIÓN DE FUERZA DE AGARRE ===\n';
+      csvContent += 'Dinamometría Manual - Normas Tomkinson et al. 2025\n\n';
+      csvContent += 'Datos del paciente:\n';
+      csvContent += `Sexo:,${handgrip.patientData.sexo === 'male' ? 'Masculino' : 'Femenino'}\n`;
+      csvContent += `Edad:,${handgrip.patientData.edad} años\n`;
+      csvContent += `Estatura:,${handgrip.patientData.estatura_m} m\n`;
+      csvContent += `Fuerza medida:,${handgrip.patientData.hgs_kg} kg\n\n`;
+      csvContent += 'Resultados:\n';
+      csvContent += `Fuerza normalizada:,${handgrip.evaluation.hgs_normalizada.toFixed(2)} kg/m²\n`;
+      csvContent += `Percentil absoluto:,${handgrip.evaluation.percentil_absoluto.toFixed(1)}\n`;
+      csvContent += `Percentil normalizado:,${handgrip.evaluation.percentil_normalizado.toFixed(1)}\n`;
+      csvContent += `Clasificación:,${handgrip.evaluation.clasificacion}\n`;
+      csvContent += `Interpretación:,"${handgrip.evaluation.interpretacion}"\n\n`;
+    }
+    
     // Crear blob con codificación UTF-8
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -347,43 +158,169 @@ const QuestionnaireFlow = () => {
     try {
       const fecha = new Date().toISOString().slice(0, 10);
       
-      // Construir el contenido del correo
-      let emailContent = `RESULTADOS CONSOLIDADOS DE CUESTIONARIOS\n\n`;
-      emailContent += `Fecha: ${fecha}\n`;
-      emailContent += `Paciente: ${patientData.name}\n`;
-      emailContent += `Edad: ${patientData.age}\n`;
-      emailContent += `Género: ${patientData.gender}\n\n`;
-      emailContent += `----------------------------\n\n`;
+      // Construir el contenido del correo con HTML estilizado
+      let emailContent = ``;
       
       // STOP-Bang
       if (questionnaireResults.stopbang) {
         const stopbang = questionnaireResults.stopbang;
-        emailContent += `STOP-BANG (Apnea del Sueño)\n`;
-        emailContent += `Puntaje: ${stopbang.evaluation.score}/8\n`;
-        emailContent += `Riesgo: ${stopbang.evaluation.riskLevel}\n`;
-        emailContent += `Evaluación: ${stopbang.evaluation.interpretation}\n\n`;
+        const riskColor = stopbang.evaluation.score >= 5 ? '#dc2626' : 
+                         stopbang.evaluation.score >= 3 ? '#d97706' : '#059669';
+        
+        emailContent += `
+          <div style="background: #fffbeb; border-left: 4px solid #d97706; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+            <h3 style="color: #92400e; margin: 0 0 15px 0; font-size: 18px; font-weight: 700;">
+              🛏️ STOP-BANG (Apnea del Sueño)
+            </h3>
+            <div style="background: white; border-radius: 6px; padding: 15px; margin-bottom: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight: 600; color: #374151;">Puntaje Total:</span>
+                <span style="font-size: 24px; font-weight: 700; color: ${riskColor};">${stopbang.evaluation.score}/8</span>
+              </div>
+              <div style="padding: 10px; background: ${stopbang.evaluation.score >= 5 ? '#fef2f2' : stopbang.evaluation.score >= 3 ? '#fffbeb' : '#f0fdf4'}; border-radius: 6px;">
+                <strong style="color: ${riskColor};">Nivel de Riesgo: ${stopbang.evaluation.riskLevel}</strong>
+              </div>
+            </div>
+            <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin: 0;">
+              ${stopbang.evaluation.interpretation}
+            </p>
+          </div>
+        `;
       }
       
       // HAD
       if (questionnaireResults.had) {
         const had = questionnaireResults.had;
-        emailContent += `HAD (Ansiedad y Depresión)\n`;
-        emailContent += `Ansiedad: ${had.scores.anxiety.score} - ${had.scores.anxiety.level}\n`;
-        emailContent += `${had.scores.anxiety.interpretation}\n\n`;
-        emailContent += `Depresión: ${had.scores.depression.score} - ${had.scores.depression.level}\n`;
-        emailContent += `${had.scores.depression.interpretation}\n\n`;
+        const anxietyColor = had.scores.anxiety.score >= 11 ? '#dc2626' : 
+                            had.scores.anxiety.score >= 8 ? '#d97706' : '#059669';
+        const depressionColor = had.scores.depression.score >= 11 ? '#dc2626' : 
+                               had.scores.depression.score >= 7 ? '#d97706' : '#059669';
+        
+        emailContent += `
+          <div style="background: #f0fdf4; border-left: 4px solid #059669; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+            <h3 style="color: #065f46; margin: 0 0 15px 0; font-size: 18px; font-weight: 700;">
+              🧠 HAD (Ansiedad y Depresión)
+            </h3>
+            
+            <div style="background: white; border-radius: 6px; padding: 15px; margin-bottom: 15px;">
+              <div style="margin-bottom: 8px;">
+                <strong style="color: #374151;">Ansiedad (HAD-A):</strong>
+                <span style="font-size: 20px; font-weight: 700; color: ${anxietyColor}; margin-left: 10px;">
+                  ${had.scores.anxiety.score}/21
+                </span>
+                <span style="background: ${had.scores.anxiety.score >= 11 ? '#fef2f2' : had.scores.anxiety.score >= 8 ? '#fffbeb' : '#f0fdf4'}; 
+                       color: ${anxietyColor}; padding: 4px 12px; border-radius: 12px; margin-left: 10px; font-weight: 600; font-size: 13px;">
+                  ${had.scores.anxiety.level}
+                </span>
+              </div>
+              <p style="color: #6b7280; font-size: 13px; margin: 8px 0 0 0; line-height: 1.5;">
+                ${had.scores.anxiety.interpretation}
+              </p>
+            </div>
+            
+            <div style="background: white; border-radius: 6px; padding: 15px;">
+              <div style="margin-bottom: 8px;">
+                <strong style="color: #374151;">Depresión (HAD-D):</strong>
+                <span style="font-size: 20px; font-weight: 700; color: ${depressionColor}; margin-left: 10px;">
+                  ${had.scores.depression.score}/21
+                </span>
+                <span style="background: ${had.scores.depression.score >= 11 ? '#fef2f2' : had.scores.depression.score >= 7 ? '#fffbeb' : '#f0fdf4'}; 
+                       color: ${depressionColor}; padding: 4px 12px; border-radius: 12px; margin-left: 10px; font-weight: 600; font-size: 13px;">
+                  ${had.scores.depression.level}
+                </span>
+              </div>
+              <p style="color: #6b7280; font-size: 13px; margin: 8px 0 0 0; line-height: 1.5;">
+                ${had.scores.depression.interpretation}
+              </p>
+            </div>
+          </div>
+        `;
       }
       
       // TFEQ
       if (questionnaireResults.tfeq) {
         const tfeq = questionnaireResults.tfeq;
-        emailContent += `TFEQ-R18 (Comportamiento Alimentario)\n`;
-        emailContent += `Restricción Cognitiva: ${tfeq.scores.cognitive.score}\n`;
-        emailContent += `${tfeq.scores.cognitive.interpretation}\n\n`;
-        emailContent += `Alimentación No Controlada: ${tfeq.scores.uncontrolled.score}\n`;
-        emailContent += `${tfeq.scores.uncontrolled.interpretation}\n\n`;
-        emailContent += `Alimentación Emocional: ${tfeq.scores.emotional.score}\n`;
-        emailContent += `${tfeq.scores.emotional.interpretation}\n`;
+        
+        emailContent += `
+          <div style="background: #fef2f2; border-left: 4px solid #dc2626; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+            <h3 style="color: #991b1b; margin: 0 0 15px 0; font-size: 18px; font-weight: 700;">
+              🍽️ TFEQ-R18 (Comportamiento Alimentario)
+            </h3>
+            
+            <div style="background: white; border-radius: 6px; padding: 15px; margin-bottom: 12px;">
+              <div style="margin-bottom: 6px;">
+                <strong style="color: #374151;">Restricción Cognitiva:</strong>
+                <span style="font-size: 18px; font-weight: 700; color: #dc2626; margin-left: 8px;">
+                  ${tfeq.scores.cognitive.score}
+                </span>
+              </div>
+              <p style="color: #6b7280; font-size: 13px; margin: 6px 0 0 0; line-height: 1.5;">
+                ${tfeq.scores.cognitive.interpretation}
+              </p>
+            </div>
+            
+            <div style="background: white; border-radius: 6px; padding: 15px; margin-bottom: 12px;">
+              <div style="margin-bottom: 6px;">
+                <strong style="color: #374151;">Alimentación No Controlada:</strong>
+                <span style="font-size: 18px; font-weight: 700; color: #dc2626; margin-left: 8px;">
+                  ${tfeq.scores.uncontrolled.score}
+                </span>
+              </div>
+              <p style="color: #6b7280; font-size: 13px; margin: 6px 0 0 0; line-height: 1.5;">
+                ${tfeq.scores.uncontrolled.interpretation}
+              </p>
+            </div>
+            
+            <div style="background: white; border-radius: 6px; padding: 15px;">
+              <div style="margin-bottom: 6px;">
+                <strong style="color: #374151;">Alimentación Emocional:</strong>
+                <span style="font-size: 18px; font-weight: 700; color: #dc2626; margin-left: 8px;">
+                  ${tfeq.scores.emotional.score}
+                </span>
+              </div>
+              <p style="color: #6b7280; font-size: 13px; margin: 6px 0 0 0; line-height: 1.5;">
+                ${tfeq.scores.emotional.interpretation}
+              </p>
+            </div>
+          </div>
+        `;
+      }
+      
+      // Fuerza de Agarre
+      if (questionnaireResults.handgrip && questionnaireResults.handgrip.evaluation) {
+        const handgrip = questionnaireResults.handgrip;
+        
+        emailContent += `
+          <div style="background: #fff7ed; border-left: 4px solid #ea580c; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+            <h3 style="color: #9a3412; margin: 0 0 15px 0; font-size: 18px; font-weight: 700;">
+              💪 FUERZA DE AGARRE (Dinamometría Manual)
+            </h3>
+            
+            <div style="background: white; border-radius: 6px; padding: 15px; margin-bottom: 12px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div style="text-align: center; padding: 10px; background: #fff7ed; border-radius: 6px;">
+                  <div style="font-size: 11px; color: #9a3412; font-weight: 600; margin-bottom: 4px;">FUERZA MEDIDA</div>
+                  <div style="font-size: 22px; font-weight: 700; color: #ea580c;">${handgrip.patientData.hgs_kg} kg</div>
+                </div>
+                <div style="text-align: center; padding: 10px; background: #fff7ed; border-radius: 6px;">
+                  <div style="font-size: 11px; color: #9a3412; font-weight: 600; margin-bottom: 4px;">PERCENTIL ABS.</div>
+                  <div style="font-size: 22px; font-weight: 700; color: #ea580c;">${handgrip.evaluation.percentil_absoluto.toFixed(1)}</div>
+                </div>
+                <div style="text-align: center; padding: 10px; background: #fff7ed; border-radius: 6px;">
+                  <div style="font-size: 11px; color: #9a3412; font-weight: 600; margin-bottom: 4px;">PERCENTIL NORM.</div>
+                  <div style="font-size: 22px; font-weight: 700; color: #ea580c;">${handgrip.evaluation.percentil_normalizado.toFixed(1)}</div>
+                </div>
+              </div>
+              <div style="padding: 12px; background: #ffedd5; border-radius: 6px; text-align: center;">
+                <strong style="color: #9a3412; font-size: 15px;">Clasificación: ${handgrip.evaluation.clasificacion}</strong>
+              </div>
+            </div>
+            
+            <p style="color: #6b7280; font-size: 13px; line-height: 1.6; margin: 0;">
+              ${handgrip.evaluation.interpretacion}
+            </p>
+          </div>
+        `;
       }
       
       const templateParams = {
@@ -393,6 +330,12 @@ const QuestionnaireFlow = () => {
         date: fecha,
         questionnaire_results: emailContent
       };
+      
+      // Debug: ver qué se está enviando
+      console.log('=== EMAIL DEBUG ===');
+      console.log('Template Params:', templateParams);
+      console.log('Email Content:', emailContent);
+      console.log('==================');
       
       const result = await sendEmailWithAttachment(templateParams);
       
@@ -802,6 +745,7 @@ const QuestionnaireFlow = () => {
     if (step === 'stopbang') return 0;
     if (step === 'had') return 1;
     if (step === 'tfeq') return 2;
+    if (step === 'handgrip') return 3;
     return -1;
   };
 
@@ -893,8 +837,8 @@ const QuestionnaireFlow = () => {
 
             {/* Información adicional */}
             <div className="mb-6">
-              <h3 className="text-gray-800 font-semibold mb-4 text-center">Completará 3 cuestionarios</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <h3 className="text-gray-800 font-semibold mb-4 text-center">Completará 4 cuestionarios</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 {/* STOP-Bang */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mx-auto mb-3">
@@ -921,13 +865,22 @@ const QuestionnaireFlow = () => {
                   <h4 className="text-green-900 font-semibold text-center mb-2">TFEQ-R18</h4>
                   <p className="text-green-700 text-xs text-center">Comportamiento alimentario</p>
                 </div>
+
+                {/* Fuerza de Agarre */}
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-center w-12 h-12 bg-orange-100 rounded-full mx-auto mb-3">
+                    <Hand className="w-6 h-6 text-orange-600" />
+                  </div>
+                  <h4 className="text-orange-900 font-semibold text-center mb-2">Fuerza de Agarre</h4>
+                  <p className="text-orange-700 text-xs text-center">Dinamometría manual con IA</p>
+                </div>
               </div>
               
               <div className="flex items-center justify-center text-gray-600 text-sm">
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span>Tiempo estimado: 10-15 minutos</span>
+                <span>Tiempo estimado: 15-20 minutos</span>
               </div>
             </div>
 
@@ -950,92 +903,38 @@ const QuestionnaireFlow = () => {
   // Pantalla de completado
   if (step === 'complete') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4">
-        <div className="w-full max-w-6xl mx-auto">
-          {/* Header con información del paciente */}
-          <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="bg-gradient-to-br from-green-400 to-green-600 rounded-full p-4">
-                  <CheckCircle className="w-10 h-10 text-white" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-4xl bg-white rounded-lg shadow-lg p-8">
+          <div className="text-center mb-8">
+            <CheckCircle className="w-24 h-24 text-green-500 mx-auto mb-6 animate-bounce" />
+            <h1 className="text-4xl font-bold text-gray-800 mb-4">
+              ¡Felicitaciones, {patientData.name}!
+            </h1>
+            <p className="text-xl text-gray-600 mb-2">
+              Ha completado todos los cuestionarios exitosamente
+            </p>
+            <p className="text-gray-500">
+              A continuación puede descargar los resultados o enviarlos por correo electrónico
+            </p>
+          </div>
+
+          {/* Resumen de cuestionarios completados */}
+          <div className="grid md:grid-cols-4 gap-4 mb-8">
+            {steps.map((s) => {
+              const IconComp = s.icon;
+              return (
+                <div key={s.id} className={`p-4 bg-${s.color}-50 rounded-lg border-2 border-${s.color}-200`}>
+                  <div className="flex items-center justify-center mb-3">
+                    <IconComp className={`w-8 h-8 text-${s.color}-600`} />
+                  </div>
+                  <h3 className="font-semibold text-gray-700 mb-1 text-center">{s.name}</h3>
+                  <p className="text-sm text-gray-500 text-center">Completado</p>
+                  <div className="flex justify-center mt-2">
+                    <CheckCircle className={`w-6 h-6 text-${s.color}-600`} />
+                  </div>
                 </div>
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-                    ¡Cuestionarios Completados!
-                  </h1>
-                  <p className="text-gray-600">{patientData.name} • {patientData.age} años • {patientData.gender}</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={downloadPDF}
-                  disabled={isGeneratingPDF}
-                  className={`text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-md ${
-                    isGeneratingPDF 
-                      ? 'bg-red-400 cursor-wait' 
-                      : 'bg-red-600 hover:bg-red-700'
-                  }`}
-                  title="Descargar PDF"
-                >
-                  {isGeneratingPDF ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span className="hidden md:inline">Generando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <FileText className="w-4 h-4" />
-                      <span className="hidden md:inline">PDF</span>
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={downloadConsolidatedCSV}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-md"
-                  title="Descargar CSV"
-                >
-                  <Download className="w-4 h-4" />
-                  <span className="hidden md:inline">CSV</span>
-                </button>
-                <button
-                  onClick={sendConsolidatedEmail}
-                  disabled={isEmailSending || emailSent}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-md ${
-                    emailSent
-                      ? 'bg-green-500 text-white cursor-not-allowed'
-                      : isEmailSending
-                      ? 'bg-gray-400 text-white cursor-wait'
-                      : 'bg-purple-600 text-white hover:bg-purple-700'
-                  }`}
-                  title="Enviar por email"
-                >
-                  {isEmailSending ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span className="hidden md:inline">Enviando...</span>
-                    </>
-                  ) : emailSent ? (
-                    <>
-                      <CheckCircle className="w-4 h-4" />
-                      <span className="hidden md:inline">Enviado</span>
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="w-4 h-4" />
-                      <span className="hidden md:inline">Email</span>
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={handleRestart}
-                  className="bg-gray-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-700 transition-colors flex items-center gap-2 shadow-md"
-                  title="Iniciar nuevo cuestionario"
-                >
-                  <Home className="w-4 h-4" />
-                  <span className="hidden md:inline">Nuevo</span>
-                </button>
-              </div>
-            </div>
+              );
+            })}
           </div>
 
           {/* Resultados de los cuestionarios */}
@@ -1127,52 +1026,127 @@ const QuestionnaireFlow = () => {
 
             {/* TFEQ */}
             {questionnaireResults.tfeq && (
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <div className="bg-gradient-to-r from-green-500 to-green-600 px-6 py-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-white/20 rounded-lg p-2">
-                      <Utensils className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-white">TFEQ-R18</h3>
-                      <p className="text-green-100 text-sm">Comportamiento Alimentario</p>
-                    </div>
-                  </div>
-                  <Thermometer level={getRiskLevel('tfeq')} />
+              <div className="bg-green-50 border-2 border-green-200 rounded-lg p-6">
+                <div className="flex items-center justify-center mb-4 pb-3 border-b-2 border-green-300">
+                  <Utensils className="w-6 h-6 text-green-600 mr-3" />
+                  <h4 className="text-xl font-bold text-green-900">TFEQ-R18 - Comportamiento Alimentario</h4>
                 </div>
-                <div className="p-6">
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <div className="bg-green-50 rounded-lg p-5">
-                      <h4 className="font-bold text-green-900 text-sm mb-3">Restricción Cognitiva</h4>
-                      <div className="text-center mb-3">
-                        <span className="text-4xl font-bold text-green-600">{questionnaireResults.tfeq.scores.cognitive.score}</span>
-                      </div>
-                      <p className="text-xs text-green-800 leading-relaxed">
-                        {questionnaireResults.tfeq.scores.cognitive.interpretation}
-                      </p>
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-bold text-green-800 mb-2 text-sm">Restricción Cognitiva</h5>
+                    <div className="text-center mb-2">
+                      <span className="text-2xl font-bold text-green-900">{questionnaireResults.tfeq.scores.cognitive.score}</span>
                     </div>
-                    <div className="bg-green-50 rounded-lg p-5">
-                      <h4 className="font-bold text-green-900 text-sm mb-3">Alimentación No Controlada</h4>
-                      <div className="text-center mb-3">
-                        <span className="text-4xl font-bold text-green-600">{questionnaireResults.tfeq.scores.uncontrolled.score}</span>
-                      </div>
-                      <p className="text-xs text-green-800 leading-relaxed">
-                        {questionnaireResults.tfeq.scores.uncontrolled.interpretation}
-                      </p>
+                    <p className="text-xs text-green-700">
+                      {questionnaireResults.tfeq.scores.cognitive.interpretation}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-bold text-green-800 mb-2 text-sm">Alimentación No Controlada</h5>
+                    <div className="text-center mb-2">
+                      <span className="text-2xl font-bold text-green-900">{questionnaireResults.tfeq.scores.uncontrolled.score}</span>
                     </div>
-                    <div className="bg-green-50 rounded-lg p-5">
-                      <h4 className="font-bold text-green-900 text-sm mb-3">Alimentación Emocional</h4>
-                      <div className="text-center mb-3">
-                        <span className="text-4xl font-bold text-green-600">{questionnaireResults.tfeq.scores.emotional.score}</span>
-                      </div>
-                      <p className="text-xs text-green-800 leading-relaxed">
-                        {questionnaireResults.tfeq.scores.emotional.interpretation}
-                      </p>
+                    <p className="text-xs text-green-700">
+                      {questionnaireResults.tfeq.scores.uncontrolled.interpretation}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-bold text-green-800 mb-2 text-sm">Alimentación Emocional</h5>
+                    <div className="text-center mb-2">
+                      <span className="text-2xl font-bold text-green-900">{questionnaireResults.tfeq.scores.emotional.score}</span>
                     </div>
+                    <p className="text-xs text-green-700">
+                      {questionnaireResults.tfeq.scores.emotional.interpretation}
+                    </p>
                   </div>
                 </div>
               </div>
             )}
+
+            {/* Fuerza de Agarre */}
+            {questionnaireResults.handgrip && questionnaireResults.handgrip.evaluation && (
+              <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-6">
+                <div className="flex items-center justify-center mb-4 pb-3 border-b-2 border-orange-300">
+                  <Hand className="w-6 h-6 text-orange-600 mr-3" />
+                  <h4 className="text-xl font-bold text-orange-900">Fuerza de Agarre - Dinamometría</h4>
+                </div>
+                <div className="grid md:grid-cols-3 gap-4 mb-4">
+                  <div className="bg-white rounded-lg p-4 text-center">
+                    <h5 className="font-bold text-orange-800 mb-2 text-sm">Clasificación</h5>
+                    <div className="text-center mb-2">
+                      <span className="text-xl font-bold text-orange-900 capitalize">{questionnaireResults.handgrip.evaluation.clasificacion}</span>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 text-center">
+                    <h5 className="font-bold text-orange-800 mb-2 text-sm">Percentil Absoluto</h5>
+                    <div className="text-center mb-2">
+                      <span className="text-2xl font-bold text-orange-900">{questionnaireResults.handgrip.evaluation.percentil_absoluto.toFixed(1)}</span>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 text-center">
+                    <h5 className="font-bold text-orange-800 mb-2 text-sm">Percentil Normalizado</h5>
+                    <div className="text-center mb-2">
+                      <span className="text-2xl font-bold text-orange-900">{questionnaireResults.handgrip.evaluation.percentil_normalizado.toFixed(1)}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-lg p-4">
+                  <p className="text-sm text-orange-800">
+                    <strong>Fuerza medida:</strong> {questionnaireResults.handgrip.patientData.hgs_kg} kg | 
+                    <strong> Normalizada:</strong> {questionnaireResults.handgrip.evaluation.hgs_normalizada.toFixed(2)} kg/m²
+                  </p>
+                  <p className="text-xs text-orange-700 mt-2 pt-2 border-t border-orange-200">
+                    {questionnaireResults.handgrip.evaluation.interpretacion}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Botones de acción */}
+          <div className="grid md:grid-cols-3 gap-4">
+            <button
+              onClick={downloadConsolidatedCSV}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+            >
+              <Download className="w-5 h-5" />
+              Descargar CSV
+            </button>
+            <button
+              onClick={sendConsolidatedEmail}
+              disabled={isEmailSending || emailSent}
+              className={`px-6 py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
+                emailSent
+                  ? 'bg-green-500 text-white cursor-not-allowed'
+                  : isEmailSending
+                  ? 'bg-gray-400 text-white cursor-wait'
+                  : 'bg-purple-600 text-white hover:bg-purple-700'
+              }`}
+            >
+              {isEmailSending ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Enviando...
+                </>
+              ) : emailSent ? (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  Enviado
+                </>
+              ) : (
+                <>
+                  <Mail className="w-5 h-5" />
+                  Enviar al Médico
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleRestart}
+              className="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+            >
+              <Home className="w-5 h-5" />
+              Nuevo Cuestionario
+            </button>
           </div>
         </div>
       </div>
@@ -1229,51 +1203,57 @@ const QuestionnaireFlow = () => {
     );
   };
 
-  // Cuestionarios individuales
-  if (step === 'stopbang') {
-    return (
-      <StopBangQuestionnaire
-        onGoToHome={handleRestart}
-        onGoToHAD={() => setStep('had')}
-        onGoToTFEQ={() => setStep('tfeq')}
-        patientInfo={patientData}
-        onComplete={(results) => handleQuestionnaireComplete('stopbang', results)}
-        hidePatientForm={true}
-        progressBar={<ProgressBar />}
-        showResultScreen={false}
-      />
-    );
-  }
-
-  if (step === 'had') {
-    return (
-      <HADQuestionnaire
-        onGoToHome={handleRestart}
-        onGoToStopBang={() => setStep('stopbang')}
-        onGoToTFEQ={() => setStep('tfeq')}
-        patientInfo={patientData}
-        onComplete={(results) => handleQuestionnaireComplete('had', results)}
-        hidePatientForm={true}
-        progressBar={<ProgressBar />}
-        showResultScreen={false}
-      />
-    );
-  }
-
-  if (step === 'tfeq') {
-    return (
-      <TFEQQuestionnaire
-        onGoToHome={handleRestart}
-        onGoToStopBang={() => setStep('stopbang')}
-        onGoToHAD={() => setStep('had')}
-        patientInfo={patientData}
-        onComplete={(results) => handleQuestionnaireComplete('tfeq', results)}
-        hidePatientForm={true}
-        progressBar={<ProgressBar />}
-        showResultScreen={false}
-      />
-    );
-  }
+  // Renderizar el cuestionario actual
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {step === 'stopbang' && (
+        <StopBangQuestionnaire
+          onGoToHome={handleRestart}
+          onGoToHAD={() => setStep('had')}
+          onGoToTFEQ={() => setStep('tfeq')}
+          patientInfo={patientData}
+          onComplete={(results) => handleQuestionnaireComplete('stopbang', results)}
+          hidePatientForm={true}
+          progressBar={<ProgressBar />}
+          showResultScreen={false}
+        />
+      )}
+      {step === 'had' && (
+        <HADQuestionnaire
+          onGoToHome={handleRestart}
+          onGoToStopBang={() => setStep('stopbang')}
+          onGoToTFEQ={() => setStep('tfeq')}
+          patientInfo={patientData}
+          onComplete={(results) => handleQuestionnaireComplete('had', results)}
+          hidePatientForm={true}
+          progressBar={<ProgressBar />}
+          showResultScreen={false}
+        />
+      )}
+      {step === 'tfeq' && (
+        <TFEQQuestionnaire
+          onGoToHome={handleRestart}
+          onGoToStopBang={() => setStep('stopbang')}
+          onGoToHAD={() => setStep('had')}
+          patientInfo={patientData}
+          onComplete={(results) => handleQuestionnaireComplete('tfeq', results)}
+          hidePatientForm={true}
+          progressBar={<ProgressBar />}
+          showResultScreen={false}
+        />
+      )}
+      {step === 'handgrip' && (
+        <HandGripQuestionnaire
+          onGoToHome={handleRestart}
+          patientInfo={patientData}
+          onComplete={(results) => handleQuestionnaireComplete('handgrip', results)}
+          hidePatientForm={true}
+          progressBar={<ProgressBar />}
+          showResultScreen={false}
+        />
+      )}
+    </div>
+  );
 };
 
 export default QuestionnaireFlow;
