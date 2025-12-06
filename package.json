@@ -11,12 +11,9 @@
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
-<<<<<<< HEAD
+    "@google/generative-ai": "^0.24.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.3",
-=======
-    "@google/generative-ai": "^0.24.1",
->>>>>>> 774d5c44e392b25e441bf079a904c0251750321f
     "lucide-react": "^0.516.0",
     "react": "^19.1.0",
     "react-circular-progressbar": "^2.2.0",
