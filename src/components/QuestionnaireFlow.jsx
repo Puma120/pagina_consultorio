@@ -6,6 +6,7 @@ import TFEQQuestionnaire from './TFEQQuestionnaire';
 import HandGripQuestionnaire from './HandGripQuestionnaire';
 import { sendEmailWithAttachment, generateCSVString } from '../utils/emailService';
 import { evaluateStopBang } from '../utils/stopbangEvaluator';
+import jsPDF from 'jspdf';
 
 const QuestionnaireFlow = () => {
   const [step, setStep] = useState('patient-data'); // patient-data, stopbang, had, tfeq, handgrip, complete
@@ -18,6 +19,7 @@ const QuestionnaireFlow = () => {
   });
   const [isEmailSending, setIsEmailSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const steps = [
     { id: 'stopbang', name: 'STOP-Bang', icon: Moon, color: 'blue' },
@@ -57,6 +59,209 @@ const QuestionnaireFlow = () => {
       handgrip: null
     });
     setEmailSent(false);
+  };
+
+  const getRiskColor = (questionnaireId) => {
+    if (!questionnaireResults[questionnaireId]) return 'gray';
+
+    if (questionnaireId === 'stopbang') {
+      const score = questionnaireResults.stopbang.evaluation.score;
+      if (score >= 5) return 'red';
+      if (score >= 3) return 'yellow';
+      return 'green';
+    }
+
+    if (questionnaireId === 'had') {
+      const anxietyScore = questionnaireResults.had.scores.anxiety.score;
+      const depressionScore = questionnaireResults.had.scores.depression.score;
+      const maxScore = Math.max(anxietyScore, depressionScore);
+      
+      if (maxScore >= 11) return 'red';
+      if (maxScore >= 8) return 'yellow';
+      return 'green';
+    }
+
+    if (questionnaireId === 'tfeq') {
+      const cognitiveScore = questionnaireResults.tfeq.scores.cognitive.score;
+      const uncontrolledScore = questionnaireResults.tfeq.scores.uncontrolled.score;
+      const emotionalScore = questionnaireResults.tfeq.scores.emotional.score;
+      
+      if (cognitiveScore >= 14 || uncontrolledScore >= 27 || emotionalScore >= 8) return 'red';
+      if (cognitiveScore >= 10 || uncontrolledScore >= 20 || emotionalScore >= 5) return 'yellow';
+      return 'green';
+    }
+
+    if (questionnaireId === 'handgrip') {
+      const percentil = questionnaireResults.handgrip.evaluation.percentil_normalizado;
+      
+      if (percentil < 40) return 'red';  // Fuerza baja/algo baja
+      if (percentil < 60) return 'yellow';  // Fuerza moderada
+      return 'green';  // Fuerza alta/algo alta
+    }
+
+    return 'gray';
+  };
+
+  const getRiskLevel = (questionnaireId) => {
+    if (!questionnaireResults[questionnaireId]) return 'low';
+
+    if (questionnaireId === 'stopbang') {
+      const score = questionnaireResults.stopbang.evaluation.score;
+      if (score <= 2) return 'low';
+      if (score <= 4) return 'medium';
+      return 'high';
+    }
+
+    if (questionnaireId === 'had') {
+      const anxietyScore = questionnaireResults.had.scores.anxiety.score;
+      const depressionScore = questionnaireResults.had.scores.depression.score;
+      const maxScore = Math.max(anxietyScore, depressionScore);
+      
+      if (maxScore <= 7) return 'low';
+      if (maxScore <= 10) return 'medium';
+      return 'high';
+    }
+
+    if (questionnaireId === 'tfeq') {
+      const cognitiveScore = questionnaireResults.tfeq.scores.cognitive.score;
+      const uncontrolledScore = questionnaireResults.tfeq.scores.uncontrolled.score;
+      const emotionalScore = questionnaireResults.tfeq.scores.emotional.score;
+      
+      const hasHighRisk = 
+        (cognitiveScore >= 14) || 
+        (uncontrolledScore >= 27) || 
+        (emotionalScore >= 8);
+      
+      const hasMediumRisk = 
+        (cognitiveScore >= 10 && cognitiveScore < 14) || 
+        (uncontrolledScore >= 20 && uncontrolledScore < 27) || 
+        (emotionalScore >= 5 && emotionalScore < 8);
+      
+      if (hasHighRisk) return 'high';
+      if (hasMediumRisk) return 'medium';
+      return 'low';
+    }
+
+    if (questionnaireId === 'handgrip') {
+      const percentil = questionnaireResults.handgrip.evaluation.percentil_normalizado;
+      
+      if (percentil >= 60) return 'low';  // Fuerza alta/algo alta = bajo riesgo
+      if (percentil >= 40) return 'medium';  // Fuerza moderada = riesgo medio
+      return 'high';  // Fuerza baja/algo baja = alto riesgo
+    }
+
+    return 'low';
+  };
+
+  const getRiskLevelText = (questionnaireId) => {
+    const level = getRiskLevel(questionnaireId);
+    
+    if (questionnaireId === 'stopbang') {
+      if (level === 'low') return 'Bajo Riesgo';
+      if (level === 'medium') return 'Riesgo Intermedio';
+      return 'Alto Riesgo';
+    }
+    
+    if (questionnaireId === 'had') {
+      if (level === 'low') return 'Normal';
+      if (level === 'medium') return 'Borderline';
+      return 'Anormal';
+    }
+    
+    if (questionnaireId === 'tfeq') {
+      if (level === 'low') return 'Bajo';
+      if (level === 'medium') return 'Moderado';
+      return 'Alto';
+    }
+    
+    if (questionnaireId === 'handgrip') {
+      if (level === 'low') return 'Fuerza Adecuada';
+      if (level === 'medium') return 'Fuerza Moderada';
+      return 'Fuerza Baja';
+    }
+    
+    return 'No especificado';
+  };
+
+  const Thermometer = ({ level }) => {
+    const getFillPercentage = (level) => {
+      switch (level) {
+        case 'low':
+          return 33;
+        case 'medium':
+          return 66;
+        case 'high':
+          return 100;
+        default:
+          return 0;
+      }
+    };
+
+    const getGradientStops = (level) => {
+      switch (level) {
+        case 'low':
+          return {
+            start: '#22c55e',
+            end: '#4ade80'
+          };
+        case 'medium':
+          return {
+            start: '#22c55e',
+            end: '#eab308'
+          };
+        case 'high':
+          return {
+            start: '#22c55e',
+            mid: '#eab308',
+            end: '#ef4444'
+          };
+        default:
+          return {
+            start: '#9ca3af',
+            end: '#9ca3af'
+          };
+      }
+    };
+
+    const percentage = getFillPercentage(level);
+    const fillHeight = (percentage / 100) * 80;
+    const gradientId = `thermometer-gradient-${level}`;
+    const gradientStops = getGradientStops(level);
+
+    return (
+      <div style={{ width: '40px', height: '110px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <svg width="40" height="110" viewBox="0 0 40 110" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={gradientId} x1="0%" y1="100%" x2="0%" y2="0%">
+              <stop offset="0%" style={{ stopColor: gradientStops.start, stopOpacity: 1 }} />
+              {gradientStops.mid && (
+                <stop offset="50%" style={{ stopColor: gradientStops.mid, stopOpacity: 1 }} />
+              )}
+              <stop offset="100%" style={{ stopColor: gradientStops.end, stopOpacity: 1 }} />
+            </linearGradient>
+          </defs>
+          
+          <rect x="13" y="6" width="14" height="80" rx="7" fill="#f3f4f6" stroke="#374151" strokeWidth="1.5"/>
+          <circle cx="20" cy="95" r="12" fill="#f3f4f6" stroke="#374151" strokeWidth="1.5"/>
+          <circle cx="20" cy="95" r="9" fill="#22c55e"/>
+          <rect 
+            x="16" 
+            y={86 - fillHeight} 
+            width="8" 
+            height={fillHeight} 
+            fill={`url(#${gradientId})`}
+            rx="4"
+          />
+          <line x1="27" y1="18" x2="30" y2="18" stroke="#6b7280" strokeWidth="1"/>
+          <line x1="27" y1="30" x2="29" y2="30" stroke="#9ca3af" strokeWidth="0.8"/>
+          <line x1="27" y1="42" x2="30" y2="42" stroke="#6b7280" strokeWidth="1"/>
+          <line x1="27" y1="54" x2="29" y2="54" stroke="#9ca3af" strokeWidth="0.8"/>
+          <line x1="27" y1="66" x2="30" y2="66" stroke="#6b7280" strokeWidth="1"/>
+          <line x1="27" y1="78" x2="29" y2="78" stroke="#9ca3af" strokeWidth="0.8"/>
+          <rect x="16" y="10" width="8" height="76" rx="4" fill="none" stroke="#d1d5db" strokeWidth="0.8" opacity="0.5"/>
+        </svg>
+      </div>
+    );
   };
 
   const downloadConsolidatedCSV = () => {
@@ -351,6 +556,478 @@ const QuestionnaireFlow = () => {
     }
   };
 
+  const downloadPDF = async () => {
+    if (isGeneratingPDF) return;
+    
+    setIsGeneratingPDF(true);
+    
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      const contentWidth = pageWidth - (2 * margin);
+      let yPosition = margin;
+      const fecha = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+
+      // Función para dibujar termómetro
+      const drawThermometer = (x, y, level) => {
+        const getFillPercentage = (level) => {
+          switch (level) {
+            case 'low': return 33;
+            case 'medium': return 66;
+            case 'high': return 100;
+            default: return 0;
+          }
+        };
+        
+        const getColorForHeight = (heightPercent, level) => {
+          // Simular el degradado calculando el color según la altura
+          if (level === 'low') {
+            // Verde a verde claro
+            const ratio = heightPercent / 33;
+            return [
+              34 + (74 - 34) * ratio,
+              197 + (222 - 197) * ratio,
+              94 + (128 - 94) * ratio
+            ];
+          } else if (level === 'medium') {
+            // Verde a amarillo
+            if (heightPercent < 33) {
+              return [34, 197, 94]; // Verde base
+            } else {
+              const ratio = (heightPercent - 33) / 33;
+              return [
+                34 + (234 - 34) * ratio,
+                197 + (179 - 197) * ratio,
+                94 + (8 - 94) * ratio
+              ];
+            }
+          } else { // high
+            // Verde a amarillo a rojo
+            if (heightPercent < 33) {
+              return [34, 197, 94]; // Verde
+            } else if (heightPercent < 66) {
+              const ratio = (heightPercent - 33) / 33;
+              return [
+                34 + (234 - 34) * ratio,
+                197 + (179 - 197) * ratio,
+                94 + (8 - 94) * ratio
+              ];
+            } else {
+              const ratio = (heightPercent - 66) / 34;
+              return [
+                234 + (239 - 234) * ratio,
+                179 + (68 - 179) * ratio,
+                8 + (68 - 8) * ratio
+              ];
+            }
+          }
+        };
+        
+        const percentage = getFillPercentage(level);
+        const tubeHeight = 20;
+        const fillHeight = (percentage / 100) * tubeHeight;
+        
+        // Tubo exterior
+        pdf.setFillColor(243, 244, 246);
+        pdf.setDrawColor(55, 65, 81);
+        pdf.setLineWidth(0.4);
+        pdf.roundedRect(x + 1.5, y, 4, tubeHeight, 2, 2, 'FD');
+        
+        // Bulbo exterior
+        pdf.setFillColor(243, 244, 246);
+        pdf.circle(x + 3.5, y + 23, 3.5, 'FD');
+        
+        // Relleno del bulbo (siempre verde)
+        pdf.setFillColor(34, 197, 94);
+        pdf.circle(x + 3.5, y + 23, 2.8, 'F');
+        
+        // Relleno del tubo con degradado simulado usando rectángulo redondeado como base
+        if (fillHeight > 0) {
+          const steps = 30;
+          const stepHeight = fillHeight / steps;
+          
+          // Dibujar el fondo completo redondeado primero
+          for (let i = 0; i < steps; i++) {
+            const currentPercent = ((steps - i - 1) / steps) * percentage;
+            const color = getColorForHeight(currentPercent, level);
+            pdf.setFillColor(Math.round(color[0]), Math.round(color[1]), Math.round(color[2]));
+            const stepY = y + tubeHeight - fillHeight + (i * stepHeight);
+            const remainingHeight = fillHeight - (i * stepHeight);
+            
+            // Usar rectángulo redondeado para toda la altura restante
+            if (remainingHeight > 1) {
+              pdf.roundedRect(x + 2, stepY, 3, remainingHeight, 1.5, 1.5, 'F');
+            }
+          }
+        }
+        
+        // Líneas de medición
+        pdf.setDrawColor(107, 114, 128);
+        pdf.setLineWidth(0.3);
+        pdf.line(x + 5.5, y + 3, x + 7, y + 3);
+        pdf.line(x + 5.5, y + 10, x + 7, y + 10);
+        pdf.line(x + 5.5, y + 17, x + 7, y + 17);
+      };
+
+      // Función para verificar espacio y agregar nueva página si es necesario
+      const checkSpace = (needed) => {
+        if (yPosition + needed > pageHeight - margin) {
+          pdf.addPage();
+          yPosition = margin;
+          return true;
+        }
+        return false;
+      };
+
+      // Función para agregar texto con ajuste automático
+      const addText = (text, x, y, maxWidth, options = {}) => {
+        pdf.setFontSize(options.fontSize || 10);
+        pdf.setFont('helvetica', options.fontStyle || 'normal');
+        pdf.setTextColor(options.color?.[0] || 0, options.color?.[1] || 0, options.color?.[2] || 0);
+        
+        const lines = pdf.splitTextToSize(text, maxWidth);
+        let currentY = y;
+        const lineHeight = (options.fontSize || 10) * 0.5;
+        
+        lines.forEach(line => {
+          if (currentY + lineHeight > pageHeight - margin) {
+            pdf.addPage();
+            currentY = margin;
+          }
+          pdf.text(line, x, currentY);
+          currentY += lineHeight;
+        });
+        
+        return currentY;
+      };
+
+      // ============ HEADER ============
+      pdf.setFillColor(59, 130, 246); // blue-500
+      pdf.rect(0, 0, pageWidth, 45, 'F');
+      
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(24);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('RESULTADOS DE CUESTIONARIOS', pageWidth / 2, 20, { align: 'center' });
+      
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Evaluación Clínica Consolidada', pageWidth / 2, 30, { align: 'center' });
+      pdf.text(fecha, pageWidth / 2, 38, { align: 'center' });
+
+      yPosition = 55;
+
+      // ============ INFORMACIÓN DEL PACIENTE ============
+      pdf.setFillColor(243, 244, 246); // gray-100
+      pdf.roundedRect(margin, yPosition, contentWidth, 28, 3, 3, 'F');
+      
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Información del Paciente', margin + 5, yPosition + 8);
+      
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Nombre: ${patientData.name}`, margin + 5, yPosition + 15);
+      pdf.text(`Edad: ${patientData.age} años`, margin + 5, yPosition + 21);
+      pdf.text(`Género: ${patientData.gender}`, margin + 70, yPosition + 21);
+
+      yPosition += 35;
+
+      // ============ STOP-BANG ============
+      if (questionnaireResults.stopbang) {
+        checkSpace(70);
+        
+        const stopbang = questionnaireResults.stopbang;
+        const riskColor = getRiskColor('stopbang');
+        
+        // Header de sección
+        const headerY = yPosition;
+        pdf.setFillColor(59, 130, 246); // blue-500
+        pdf.roundedRect(margin, headerY, contentWidth, 15, 2, 2, 'F');
+        
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('STOP-BANG', margin + 5, headerY + 6);
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('Evaluación de Apnea del Sueño', margin + 5, headerY + 11);
+        
+        // Termómetro
+        const riskLevel = getRiskLevel('stopbang');
+        drawThermometer(pageWidth - margin - 10, headerY - 2, riskLevel);
+        
+        yPosition = headerY + 18;
+        
+        // Contenido simplificado
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`${stopbang.evaluation.score}/8`, margin + 5, yPosition + 6);
+        
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Nivel de Riesgo: ', margin + 5, yPosition + 13);
+        const riskColorRGB = riskColor === 'red' ? [220, 38, 38] : riskColor === 'yellow' ? [202, 138, 4] : [21, 128, 61];
+        pdf.setTextColor(riskColorRGB[0], riskColorRGB[1], riskColorRGB[2]);
+        pdf.text(`${stopbang.evaluation.riskLevel}`, margin + 37, yPosition + 13);
+        
+        yPosition += 20;
+      }
+
+      // ============ HAD ============
+      if (questionnaireResults.had) {
+        checkSpace(80);
+        
+        const had = questionnaireResults.had;
+        const riskColor = getRiskColor('had');
+        
+        // Header
+        const headerY = yPosition;
+        pdf.setFillColor(168, 85, 247); // purple-500
+        pdf.roundedRect(margin, headerY, contentWidth, 15, 2, 2, 'F');
+        
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('HAD', margin + 5, headerY + 6);
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('Evaluación Psicológica', margin + 5, headerY + 11);
+        
+        // Termómetro
+        const riskLevel = getRiskLevel('had');
+        drawThermometer(pageWidth - margin - 10, headerY - 2, riskLevel);
+        
+        yPosition = headerY + 18;
+        
+        // Dos columnas simplificadas
+        const colWidth = (contentWidth - 3) / 2;
+        const leftX = margin;
+        const rightX = margin + colWidth + 3;
+        const startY = yPosition;
+        
+        // Columna izquierda: Ansiedad
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(11);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('ANSIEDAD', leftX + 2, startY + 6);
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`${had.scores.anxiety.score}/21`, leftX + 2, startY + 13);
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`${had.scores.anxiety.level}`, leftX + 2, startY + 19);
+        
+        // Columna derecha: Depresión
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(11);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('DEPRESIÓN', rightX + 2, startY + 6);
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`${had.scores.depression.score}/21`, rightX + 2, startY + 13);
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`${had.scores.depression.level}`, rightX + 2, startY + 19);
+        
+        // Nivel de riesgo general
+        yPosition = startY + 26;
+        const hadRiskLevel = getRiskLevelText('had');
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Nivel de Riesgo: ', margin + 2, yPosition);
+        const hadRiskColor = riskColor === 'red' ? [220, 38, 38] : riskColor === 'yellow' ? [202, 138, 4] : [21, 128, 61];
+        pdf.setTextColor(hadRiskColor[0], hadRiskColor[1], hadRiskColor[2]);
+        pdf.text(hadRiskLevel, margin + 32, yPosition);
+        
+        yPosition += 8;
+      }
+
+      // ============ TFEQ ============
+      if (questionnaireResults.tfeq) {
+        checkSpace(80);
+        
+        const tfeq = questionnaireResults.tfeq;
+        const riskColor = getRiskColor('tfeq');
+        
+        // Header
+        const headerY = yPosition;
+        pdf.setFillColor(34, 197, 94); // green-500
+        pdf.roundedRect(margin, headerY, contentWidth, 15, 2, 2, 'F');
+        
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('TFEQ-R18', margin + 5, headerY + 6);
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('Evaluación de Comportamiento Alimentario', margin + 5, headerY + 11);
+        
+        // Termómetro
+        const riskLevel = getRiskLevel('tfeq');
+        drawThermometer(pageWidth - margin - 10, headerY - 2, riskLevel);
+        
+        yPosition = headerY + 18;
+        
+        // Tres columnas simplificadas
+        const colWidth3 = (contentWidth - 6) / 3;
+        const col1X = margin;
+        const col2X = margin + colWidth3 + 3;
+        const col3X = margin + 2 * (colWidth3 + 3);
+        const startY = yPosition;
+        
+        // Col 1: Restricción Cognitiva
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Restricción Cognitiva', col1X + colWidth3 / 2, startY + 4, { align: 'center' });
+        pdf.setFontSize(16);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(String(tfeq.scores.cognitive.score), col1X + colWidth3 / 2, startY + 12, { align: 'center' });
+        
+        // Col 2: Alimentación No Controlada
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Alimentación No', col2X + colWidth3 / 2, startY + 3, { align: 'center' });
+        pdf.text('Controlada', col2X + colWidth3 / 2, startY + 6.5, { align: 'center' });
+        pdf.setFontSize(16);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(String(tfeq.scores.uncontrolled.score), col2X + colWidth3 / 2, startY + 14, { align: 'center' });
+        
+        // Col 3: Alimentación Emocional
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Alimentación', col3X + colWidth3 / 2, startY + 3, { align: 'center' });
+        pdf.text('Emocional', col3X + colWidth3 / 2, startY + 6.5, { align: 'center' });
+        pdf.setFontSize(16);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(String(tfeq.scores.emotional.score), col3X + colWidth3 / 2, startY + 14, { align: 'center' });
+        
+        // Nivel de riesgo general
+        yPosition = startY + 20;
+        const tfeqRiskLevel = getRiskLevelText('tfeq');
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Nivel de Riesgo: ', margin + 2, yPosition);
+        const tfeqRiskColor = riskColor === 'red' ? [220, 38, 38] : riskColor === 'yellow' ? [202, 138, 4] : [21, 128, 61];
+        pdf.setTextColor(tfeqRiskColor[0], tfeqRiskColor[1], tfeqRiskColor[2]);
+        pdf.text(tfeqRiskLevel, margin + 32, yPosition);
+        
+        yPosition += 8;
+      }
+
+      // ============ FUERZA DE AGARRE ============
+      if (questionnaireResults.handgrip && questionnaireResults.handgrip.evaluation) {
+        checkSpace(50);
+        
+        const handgrip = questionnaireResults.handgrip;
+        const riskColor = getRiskColor('handgrip');
+        
+        // Header
+        const headerY = yPosition;
+        pdf.setFillColor(249, 115, 22); // orange-500
+        pdf.roundedRect(margin, headerY, contentWidth, 15, 2, 2, 'F');
+        
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('FUERZA DE AGARRE', margin + 5, headerY + 6);
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('Dinamometría Manual con IA', margin + 5, headerY + 11);
+        
+        // Termómetro
+        const riskLevel = getRiskLevel('handgrip');
+        drawThermometer(pageWidth - margin - 10, headerY - 2, riskLevel);
+        
+        yPosition = headerY + 18;
+        
+        // Tres columnas simplificadas
+        const colWidth3 = (contentWidth - 6) / 3;
+        const col1X = margin;
+        const col2X = margin + colWidth3 + 3;
+        const col3X = margin + 2 * (colWidth3 + 3);
+        const startY = yPosition;
+        
+        // Col 1: Clasificación
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Clasificación', col1X + colWidth3 / 2, startY + 4, { align: 'center' });
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        const clasificacion = handgrip.evaluation.clasificacion.charAt(0).toUpperCase() + handgrip.evaluation.clasificacion.slice(1);
+        pdf.text(clasificacion, col1X + colWidth3 / 2, startY + 11, { align: 'center' });
+        
+        // Col 2: Percentil Absoluto
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Percentil Absoluto', col2X + colWidth3 / 2, startY + 4, { align: 'center' });
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(handgrip.evaluation.percentil_absoluto.toFixed(1), col2X + colWidth3 / 2, startY + 12, { align: 'center' });
+        
+        // Col 3: Percentil Normalizado
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Percentil Normalizado', col3X + colWidth3 / 2, startY + 4, { align: 'center' });
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(handgrip.evaluation.percentil_normalizado.toFixed(1), col3X + colWidth3 / 2, startY + 12, { align: 'center' });
+        
+        yPosition = startY + 18;
+        
+        // Información adicional en una línea
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Fuerza: ${handgrip.patientData.hgs_kg} kg | Normalizada: ${handgrip.evaluation.hgs_normalizada.toFixed(2)} kg/m²`, margin + 2, yPosition);
+        
+        yPosition += 5;
+        
+        // Nivel de riesgo
+        const handgripRiskLevel = getRiskLevelText('handgrip');
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Evaluación: ', margin + 2, yPosition);
+        const handgripRiskColor = riskColor === 'red' ? [220, 38, 38] : riskColor === 'yellow' ? [202, 138, 4] : [21, 128, 61];
+        pdf.setTextColor(handgripRiskColor[0], handgripRiskColor[1], handgripRiskColor[2]);
+        pdf.text(handgripRiskLevel, margin + 24, yPosition);
+        
+        yPosition += 8;
+      }
+
+      // ============ FOOTER ============
+      const totalPages = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setTextColor(156, 163, 175);
+        pdf.text(`Página ${i} de ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        pdf.text('Documento generado automáticamente', pageWidth / 2, pageHeight - 6, { align: 'center' });
+      }
+
+      // Guardar PDF
+      pdf.save(`Resultados_${patientData.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (error) {
+      console.error('Error al generar PDF:', error);
+      alert('Error al generar el PDF. Por favor intente nuevamente.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   const getCurrentStepIndex = () => {
     if (step === 'stopbang') return 0;
     if (step === 'had') return 1;
@@ -547,51 +1224,39 @@ const QuestionnaireFlow = () => {
             })}
           </div>
 
-          {/* Información del paciente */}
-          <div className="bg-gray-50 rounded-lg p-6 mb-6">
-            <h3 className="font-semibold text-gray-700 mb-3 flex items-center">
-              <User className="w-5 h-5 mr-2" />
-              Datos del Paciente
-            </h3>
-            <div className="grid md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="text-gray-500">Nombre:</span>
-                <p className="font-medium text-gray-800">{patientData.name}</p>
-              </div>
-              <div>
-                <span className="text-gray-500">Edad:</span>
-                <p className="font-medium text-gray-800">{patientData.age} años</p>
-              </div>
-              <div>
-                <span className="text-gray-500">Género:</span>
-                <p className="font-medium text-gray-800">{patientData.gender}</p>
-              </div>
-            </div>
-          </div>
-
           {/* Resultados de los cuestionarios */}
-          <div className="space-y-4 mb-6">
-            <h3 className="text-xl font-bold text-gray-800">Resultados de los Cuestionarios</h3>
-            
+          <div className="space-y-5">
             {/* STOP-Bang */}
             {questionnaireResults.stopbang && (
-              <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
-                <div className="flex items-center justify-center mb-4 pb-3 border-b-2 border-blue-300">
-                  <Moon className="w-6 h-6 text-blue-600 mr-3" />
-                  <h4 className="text-xl font-bold text-blue-900">STOP-Bang - Apnea del Sueño</h4>
+              <div className="bg-white rounded-2xl shadow-lg overflow-visible relative">
+                <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white/20 rounded-lg p-2">
+                      <Moon className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-white">STOP-BANG</h3>
+                      <p className="text-blue-100 text-sm">Evaluación de Apnea del Sueño</p>
+                    </div>
+                  </div>
+                  <div className="absolute -top-4 right-6">
+                    <Thermometer level={getRiskLevel('stopbang')} />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-blue-800 font-medium">Puntaje:</span>
-                    <span className="text-blue-900 font-bold text-lg">{questionnaireResults.stopbang.evaluation.score} / 8</span>
+                <div className="p-6">
+                  <div className="grid md:grid-cols-3 gap-4 mb-4">
+                    <div className="bg-blue-50 rounded-lg p-4 text-center">
+                      <p className="text-blue-600 text-sm font-medium mb-1">Puntaje Total</p>
+                      <p className="text-3xl font-bold text-blue-900">{questionnaireResults.stopbang.evaluation.score}<span className="text-lg text-blue-600">/8</span></p>
+                    </div>
+                    <div className="bg-blue-50 rounded-lg p-4 text-center md:col-span-2">
+                      <p className="text-blue-600 text-sm font-medium mb-1">Nivel de Riesgo</p>
+                      <p className="text-2xl font-bold text-blue-900">{questionnaireResults.stopbang.evaluation.riskLevel}</p>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-blue-800 font-medium">Nivel de Riesgo:</span>
-                    <span className="text-blue-900 font-bold">{questionnaireResults.stopbang.evaluation.riskLevel}</span>
-                  </div>
-                  <div className="mt-3 pt-3 border-t border-blue-200">
-                    <p className="text-blue-800 text-sm">
-                      <strong>Interpretación:</strong> {questionnaireResults.stopbang.evaluation.interpretation}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-gray-700 text-sm leading-relaxed">
+                      <strong className="text-gray-900">Interpretación:</strong> {questionnaireResults.stopbang.evaluation.interpretation}
                     </p>
                   </div>
                 </div>
@@ -600,40 +1265,48 @@ const QuestionnaireFlow = () => {
 
             {/* HAD */}
             {questionnaireResults.had && (
-              <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-6">
-                <div className="flex items-center justify-center mb-4 pb-3 border-b-2 border-purple-300">
-                  <Brain className="w-6 h-6 text-purple-600 mr-3" />
-                  <h4 className="text-xl font-bold text-purple-900">HAD - Ansiedad y Depresión</h4>
+              <div className="bg-white rounded-2xl shadow-lg overflow-visible relative">
+                <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white/20 rounded-lg p-2">
+                      <Brain className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-white">HAD</h3>
+                      <p className="text-purple-100 text-sm">Escala de Ansiedad y Depresión</p>
+                    </div>
+                  </div>
+                  <div className="absolute -top-4 right-6">
+                    <Thermometer level={getRiskLevel('had')} />
+                  </div>
                 </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="bg-white rounded-lg p-4">
-                    <h5 className="font-bold text-purple-800 mb-2">Ansiedad</h5>
-                    <div className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="text-purple-700">Puntaje:</span>
-                        <span className="font-bold text-purple-900">{questionnaireResults.had.scores.anxiety.score}</span>
+                <div className="p-6">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="bg-purple-50 rounded-lg p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-bold text-purple-900 text-lg">Ansiedad</h4>
+                        <span className="text-3xl font-bold text-purple-600">{questionnaireResults.had.scores.anxiety.score}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-purple-700">Nivel:</span>
-                        <span className="font-bold text-purple-900">{questionnaireResults.had.scores.anxiety.level}</span>
+                      <div className="mb-3 pb-3 border-b border-purple-200">
+                        <p className="text-sm text-purple-700">
+                          <strong>Nivel:</strong> {questionnaireResults.had.scores.anxiety.level}
+                        </p>
                       </div>
-                      <p className="text-xs text-purple-700 mt-2 pt-2 border-t border-purple-200">
+                      <p className="text-xs text-purple-800 leading-relaxed">
                         {questionnaireResults.had.scores.anxiety.interpretation}
                       </p>
                     </div>
-                  </div>
-                  <div className="bg-white rounded-lg p-4">
-                    <h5 className="font-bold text-purple-800 mb-2">Depresión</h5>
-                    <div className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="text-purple-700">Puntaje:</span>
-                        <span className="font-bold text-purple-900">{questionnaireResults.had.scores.depression.score}</span>
+                    <div className="bg-purple-50 rounded-lg p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-bold text-purple-900 text-lg">Depresión</h4>
+                        <span className="text-3xl font-bold text-purple-600">{questionnaireResults.had.scores.depression.score}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-purple-700">Nivel:</span>
-                        <span className="font-bold text-purple-900">{questionnaireResults.had.scores.depression.level}</span>
+                      <div className="mb-3 pb-3 border-b border-purple-200">
+                        <p className="text-sm text-purple-700">
+                          <strong>Nivel:</strong> {questionnaireResults.had.scores.depression.level}
+                        </p>
                       </div>
-                      <p className="text-xs text-purple-700 mt-2 pt-2 border-t border-purple-200">
+                      <p className="text-xs text-purple-800 leading-relaxed">
                         {questionnaireResults.had.scores.depression.interpretation}
                       </p>
                     </div>
@@ -644,38 +1317,50 @@ const QuestionnaireFlow = () => {
 
             {/* TFEQ */}
             {questionnaireResults.tfeq && (
-              <div className="bg-green-50 border-2 border-green-200 rounded-lg p-6">
-                <div className="flex items-center justify-center mb-4 pb-3 border-b-2 border-green-300">
-                  <Utensils className="w-6 h-6 text-green-600 mr-3" />
-                  <h4 className="text-xl font-bold text-green-900">TFEQ-R18 - Comportamiento Alimentario</h4>
+              <div className="bg-white rounded-2xl shadow-lg overflow-visible relative">
+                <div className="bg-gradient-to-r from-green-500 to-green-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white/20 rounded-lg p-2">
+                      <Utensils className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-white">TFEQ-R18</h3>
+                      <p className="text-green-100 text-sm">Comportamiento Alimentario</p>
+                    </div>
+                  </div>
+                  <div className="absolute -top-4 right-6">
+                    <Thermometer level={getRiskLevel('tfeq')} />
+                  </div>
                 </div>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="bg-white rounded-lg p-4">
-                    <h5 className="font-bold text-green-800 mb-2 text-sm">Restricción Cognitiva</h5>
-                    <div className="text-center mb-2">
-                      <span className="text-2xl font-bold text-green-900">{questionnaireResults.tfeq.scores.cognitive.score}</span>
+                <div className="p-6">
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <h5 className="font-bold text-green-800 mb-2 text-sm">Restricción Cognitiva</h5>
+                      <div className="text-center mb-2">
+                        <span className="text-2xl font-bold text-green-900">{questionnaireResults.tfeq.scores.cognitive.score}</span>
+                      </div>
+                      <p className="text-xs text-green-700">
+                        {questionnaireResults.tfeq.scores.cognitive.interpretation}
+                      </p>
                     </div>
-                    <p className="text-xs text-green-700">
-                      {questionnaireResults.tfeq.scores.cognitive.interpretation}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg p-4">
-                    <h5 className="font-bold text-green-800 mb-2 text-sm">Alimentación No Controlada</h5>
-                    <div className="text-center mb-2">
-                      <span className="text-2xl font-bold text-green-900">{questionnaireResults.tfeq.scores.uncontrolled.score}</span>
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <h5 className="font-bold text-green-800 mb-2 text-sm">Alimentación No Controlada</h5>
+                      <div className="text-center mb-2">
+                        <span className="text-2xl font-bold text-green-900">{questionnaireResults.tfeq.scores.uncontrolled.score}</span>
+                      </div>
+                      <p className="text-xs text-green-700">
+                        {questionnaireResults.tfeq.scores.uncontrolled.interpretation}
+                      </p>
                     </div>
-                    <p className="text-xs text-green-700">
-                      {questionnaireResults.tfeq.scores.uncontrolled.interpretation}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg p-4">
-                    <h5 className="font-bold text-green-800 mb-2 text-sm">Alimentación Emocional</h5>
-                    <div className="text-center mb-2">
-                      <span className="text-2xl font-bold text-green-900">{questionnaireResults.tfeq.scores.emotional.score}</span>
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <h5 className="font-bold text-green-800 mb-2 text-sm">Alimentación Emocional</h5>
+                      <div className="text-center mb-2">
+                        <span className="text-2xl font-bold text-green-900">{questionnaireResults.tfeq.scores.emotional.score}</span>
+                      </div>
+                      <p className="text-xs text-green-700">
+                        {questionnaireResults.tfeq.scores.emotional.interpretation}
+                      </p>
                     </div>
-                    <p className="text-xs text-green-700">
-                      {questionnaireResults.tfeq.scores.emotional.interpretation}
-                    </p>
                   </div>
                 </div>
               </div>
@@ -683,88 +1368,119 @@ const QuestionnaireFlow = () => {
 
             {/* Fuerza de Agarre */}
             {questionnaireResults.handgrip && questionnaireResults.handgrip.evaluation && (
-              <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-6">
-                <div className="flex items-center justify-center mb-4 pb-3 border-b-2 border-orange-300">
-                  <Hand className="w-6 h-6 text-orange-600 mr-3" />
-                  <h4 className="text-xl font-bold text-orange-900">Fuerza de Agarre - Dinamometría</h4>
-                </div>
-                <div className="grid md:grid-cols-3 gap-4 mb-4">
-                  <div className="bg-white rounded-lg p-4 text-center">
-                    <h5 className="font-bold text-orange-800 mb-2 text-sm">Clasificación</h5>
-                    <div className="text-center mb-2">
-                      <span className="text-xl font-bold text-orange-900 capitalize">{questionnaireResults.handgrip.evaluation.clasificacion}</span>
+              <div className="bg-white rounded-2xl shadow-lg overflow-visible relative">
+                <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white/20 rounded-lg p-2">
+                      <Hand className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-white">FUERZA DE AGARRE</h3>
+                      <p className="text-orange-100 text-sm">Dinamometría Manual con IA</p>
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg p-4 text-center">
-                    <h5 className="font-bold text-orange-800 mb-2 text-sm">Percentil Absoluto</h5>
-                    <div className="text-center mb-2">
-                      <span className="text-2xl font-bold text-orange-900">{questionnaireResults.handgrip.evaluation.percentil_absoluto.toFixed(1)}</span>
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 text-center">
-                    <h5 className="font-bold text-orange-800 mb-2 text-sm">Percentil Normalizado</h5>
-                    <div className="text-center mb-2">
-                      <span className="text-2xl font-bold text-orange-900">{questionnaireResults.handgrip.evaluation.percentil_normalizado.toFixed(1)}</span>
-                    </div>
+                  <div className="absolute -top-4 right-6">
+                    <Thermometer level={getRiskLevel('handgrip')} />
                   </div>
                 </div>
-                <div className="bg-white rounded-lg p-4">
-                  <p className="text-sm text-orange-800">
-                    <strong>Fuerza medida:</strong> {questionnaireResults.handgrip.patientData.hgs_kg} kg | 
-                    <strong> Normalizada:</strong> {questionnaireResults.handgrip.evaluation.hgs_normalizada.toFixed(2)} kg/m²
-                  </p>
-                  <p className="text-xs text-orange-700 mt-2 pt-2 border-t border-orange-200">
-                    {questionnaireResults.handgrip.evaluation.interpretacion}
-                  </p>
+                <div className="p-6">
+                  <div className="grid md:grid-cols-3 gap-4 mb-4">
+                    <div className="bg-orange-50 rounded-lg p-4 text-center">
+                      <p className="text-orange-600 text-sm font-medium mb-1">Clasificación</p>
+                      <p className="text-2xl font-bold text-orange-900 capitalize">{questionnaireResults.handgrip.evaluation.clasificacion}</p>
+                    </div>
+                    <div className="bg-orange-50 rounded-lg p-4 text-center">
+                      <p className="text-orange-600 text-sm font-medium mb-1">Percentil Absoluto</p>
+                      <p className="text-2xl font-bold text-orange-900">{questionnaireResults.handgrip.evaluation.percentil_absoluto.toFixed(1)}</p>
+                    </div>
+                    <div className="bg-orange-50 rounded-lg p-4 text-center">
+                      <p className="text-orange-600 text-sm font-medium mb-1">Percentil Normalizado</p>
+                      <p className="text-2xl font-bold text-orange-900">{questionnaireResults.handgrip.evaluation.percentil_normalizado.toFixed(1)}</p>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-gray-700 text-sm mb-2">
+                      <strong className="text-gray-900">Fuerza medida:</strong> {questionnaireResults.handgrip.patientData.hgs_kg} kg | 
+                      <strong className="text-gray-900"> Normalizada:</strong> {questionnaireResults.handgrip.evaluation.hgs_normalizada.toFixed(2)} kg/m²
+                    </p>
+                    <p className="text-gray-700 text-sm leading-relaxed">
+                      <strong className="text-gray-900">Interpretación:</strong> {questionnaireResults.handgrip.evaluation.interpretacion}
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
           {/* Botones de acción */}
-          <div className="grid md:grid-cols-3 gap-4">
-            <button
-              onClick={downloadConsolidatedCSV}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-            >
-              <Download className="w-5 h-5" />
-              Descargar CSV
-            </button>
-            <button
-              onClick={sendConsolidatedEmail}
-              disabled={isEmailSending || emailSent}
-              className={`px-6 py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
-                emailSent
-                  ? 'bg-green-500 text-white cursor-not-allowed'
-                  : isEmailSending
-                  ? 'bg-gray-400 text-white cursor-wait'
-                  : 'bg-purple-600 text-white hover:bg-purple-700'
-              }`}
-            >
-              {isEmailSending ? (
+          <div className="mt-8 space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <button
+                onClick={downloadConsolidatedCSV}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <Download className="w-5 h-5" />
+                Descargar CSV
+              </button>
+              <button
+                onClick={downloadPDF}
+                disabled={isGeneratingPDF}
+                className={`px-6 py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
+                  isGeneratingPDF
+                    ? 'bg-gray-400 text-white cursor-wait'
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                }`}
+              >
+              {isGeneratingPDF ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Enviando...
-                </>
-              ) : emailSent ? (
-                <>
-                  <CheckCircle className="w-5 h-5" />
-                  Enviado
+                  Generando...
                 </>
               ) : (
                 <>
-                  <Mail className="w-5 h-5" />
-                  Enviar al Médico
+                  <Download className="w-5 h-5" />
+                  Descargar PDF
                 </>
               )}
             </button>
-            <button
-              onClick={handleRestart}
-              className="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
-            >
-              <Home className="w-5 h-5" />
-              Nuevo Cuestionario
-            </button>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <button
+                onClick={sendConsolidatedEmail}
+                disabled={isEmailSending || emailSent}
+                className={`px-6 py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
+                  emailSent
+                    ? 'bg-green-500 text-white cursor-not-allowed'
+                    : isEmailSending
+                    ? 'bg-gray-400 text-white cursor-wait'
+                    : 'bg-purple-600 text-white hover:bg-purple-700'
+                }`}
+              >
+                {isEmailSending ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Enviando...
+                  </>
+                ) : emailSent ? (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    Enviado
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-5 h-5" />
+                    Enviar al Médico
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleRestart}
+                className="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <Home className="w-5 h-5" />
+                Nuevo Cuestionario
+              </button>
+            </div>
           </div>
         </div>
       </div>
