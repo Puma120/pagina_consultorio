@@ -22,9 +22,9 @@ const QuestionnaireFlow = () => {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const steps = [
-    { id: 'stopbang', name: 'STOP-Bang', icon: Moon, color: 'blue' },
-    { id: 'had', name: 'HAD', icon: Brain, color: 'purple' },
-    { id: 'tfeq', name: 'TFEQ-R18', icon: Utensils, color: 'green' },
+    { id: 'stopbang', name: 'Calidad de Sueño', icon: Moon, color: 'blue' },
+    { id: 'had', name: 'Salud Mental', icon: Brain, color: 'purple' },
+    { id: 'tfeq', name: 'Alimentación', icon: Utensils, color: 'green' },
     { id: 'handgrip', name: 'Fuerza de Agarre', icon: Hand, color: 'orange' }
   ];
 
@@ -280,11 +280,13 @@ const QuestionnaireFlow = () => {
     // STOP-Bang
     if (questionnaireResults.stopbang) {
       const stopbang = questionnaireResults.stopbang;
-      csvContent += '=== CUESTIONARIO STOP-BANG ===\n';
-      csvContent += 'Evaluación de riesgo de apnea del sueño\n\n';
+      csvContent += '=== EVALUACIÓN DE LA CALIDAD DE SUEÑO ===\n';
+      csvContent += 'Cuestionario STOP-BANG - Riesgo de apnea del sueño\n\n';
       csvContent += 'Pregunta,Respuesta\n';
       Object.keys(stopbang.answers).forEach(key => {
-        csvContent += `${key},${stopbang.answers[key] ? 'Sí' : 'No'}\n`;
+        const answer = stopbang.answers[key];
+        const displayAnswer = (answer === 'Yes' || answer === true) ? 'Sí' : 'No';
+        csvContent += `${key},${displayAnswer}\n`;
       });
       csvContent += `\nPuntaje total:,${stopbang.evaluation.score} de 8\n`;
       csvContent += `Nivel de riesgo:,${stopbang.evaluation.riskLevel}\n`;
@@ -294,8 +296,8 @@ const QuestionnaireFlow = () => {
     // HAD
     if (questionnaireResults.had) {
       const had = questionnaireResults.had;
-      csvContent += '=== CUESTIONARIO HAD ===\n';
-      csvContent += 'Escala de Ansiedad y Depresión Hospitalaria\n\n';
+      csvContent += '=== SALUD MENTAL (ANSIEDAD Y DEPRESIÓN) ===\n';
+      csvContent += 'Cuestionario HAD - Escala Hospitalaria de Ansiedad y Depresión\n\n';
       csvContent += 'Pregunta,Respuesta\n';
       Object.keys(had.answers).forEach(key => {
         csvContent += `${key},${had.answers[key]}\n`;
@@ -311,8 +313,8 @@ const QuestionnaireFlow = () => {
     // TFEQ
     if (questionnaireResults.tfeq) {
       const tfeq = questionnaireResults.tfeq;
-      csvContent += '=== CUESTIONARIO TFEQ-R18 ===\n';
-      csvContent += 'Evaluación del Comportamiento Alimentario\n\n';
+      csvContent += '=== SALUD MENTAL (COMPORTAMIENTO ALIMENTARIO) ===\n';
+      csvContent += 'Cuestionario TFEQ-R18 - Evaluación del Comportamiento Alimentario\n\n';
       csvContent += 'Pregunta,Respuesta\n';
       Object.keys(tfeq.answers).forEach(key => {
         csvContent += `${key},${tfeq.answers[key]}\n`;
@@ -373,7 +375,7 @@ const QuestionnaireFlow = () => {
         emailContent += `
           <div style="background: #fffbeb; border-left: 4px solid #d97706; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
             <h3 style="color: #92400e; margin: 0 0 15px 0; font-size: 18px; font-weight: 700;">
-              🛏️ STOP-BANG (Apnea del Sueño)
+              🛏️ CALIDAD DE SUEÑO
             </h3>
             <div style="background: white; border-radius: 6px; padding: 15px; margin-bottom: 12px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -402,7 +404,7 @@ const QuestionnaireFlow = () => {
         emailContent += `
           <div style="background: #f0fdf4; border-left: 4px solid #059669; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
             <h3 style="color: #065f46; margin: 0 0 15px 0; font-size: 18px; font-weight: 700;">
-              🧠 HAD (Ansiedad y Depresión)
+              🧠 SALUD MENTAL - Ansiedad y Depresión
             </h3>
             
             <div style="background: white; border-radius: 6px; padding: 15px; margin-bottom: 15px;">
@@ -447,7 +449,7 @@ const QuestionnaireFlow = () => {
         emailContent += `
           <div style="background: #fef2f2; border-left: 4px solid #dc2626; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
             <h3 style="color: #991b1b; margin: 0 0 15px 0; font-size: 18px; font-weight: 700;">
-              🍽️ TFEQ-R18 (Comportamiento Alimentario)
+              🍽️ SALUD MENTAL - Comportamiento Alimentario
             </h3>
             
             <div style="background: white; border-radius: 6px; padding: 15px; margin-bottom: 12px;">
@@ -1131,7 +1133,7 @@ const QuestionnaireFlow = () => {
                   <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mx-auto mb-3">
                     <Moon className="w-6 h-6 text-blue-600" />
                   </div>
-                  <h4 className="text-blue-900 font-semibold text-center mb-2">STOP-Bang</h4>
+                  <h4 className="text-blue-900 font-semibold text-center mb-2">Calidad de Sueño</h4>
                   <p className="text-blue-700 text-xs text-center">Evaluación de apnea del sueño</p>
                 </div>
 
@@ -1140,7 +1142,7 @@ const QuestionnaireFlow = () => {
                   <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-full mx-auto mb-3">
                     <Brain className="w-6 h-6 text-purple-600" />
                   </div>
-                  <h4 className="text-purple-900 font-semibold text-center mb-2">HAD</h4>
+                  <h4 className="text-purple-900 font-semibold text-center mb-2">Salud Mental</h4>
                   <p className="text-purple-700 text-xs text-center">Escala de ansiedad y depresión</p>
                 </div>
 
@@ -1149,7 +1151,7 @@ const QuestionnaireFlow = () => {
                   <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mx-auto mb-3">
                     <Utensils className="w-6 h-6 text-green-600" />
                   </div>
-                  <h4 className="text-green-900 font-semibold text-center mb-2">TFEQ-R18</h4>
+                  <h4 className="text-green-900 font-semibold text-center mb-2">Alimentación</h4>
                   <p className="text-green-700 text-xs text-center">Comportamiento alimentario</p>
                 </div>
 
@@ -1235,7 +1237,7 @@ const QuestionnaireFlow = () => {
                       <Moon className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-white">STOP-BANG</h3>
+                      <h3 className="text-xl font-bold text-white">CALIDAD DE SUEÑO</h3>
                       <p className="text-blue-100 text-sm">Evaluación de Apnea del Sueño</p>
                     </div>
                   </div>
@@ -1272,7 +1274,7 @@ const QuestionnaireFlow = () => {
                       <Brain className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-white">HAD</h3>
+                      <h3 className="text-xl font-bold text-white">SALUD MENTAL</h3>
                       <p className="text-purple-100 text-sm">Escala de Ansiedad y Depresión</p>
                     </div>
                   </div>
@@ -1324,7 +1326,7 @@ const QuestionnaireFlow = () => {
                       <Utensils className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-white">TFEQ-R18</h3>
+                      <h3 className="text-xl font-bold text-white">ALIMENTACIÓN</h3>
                       <p className="text-green-100 text-sm">Comportamiento Alimentario</p>
                     </div>
                   </div>
