@@ -753,10 +753,10 @@ const QuestionnaireFlow = () => {
         pdf.setTextColor(255, 255, 255);
         pdf.setFontSize(14);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('STOP-BANG', margin + 5, headerY + 6);
+        pdf.text('CALIDAD DE SUEÑO', margin + 5, headerY + 6);
         pdf.setFontSize(9);
         pdf.setFont('helvetica', 'normal');
-        pdf.text('Evaluación de Apnea del Sueño', margin + 5, headerY + 11);
+        pdf.text('Evaluacion de Apnea del Sueno', margin + 5, headerY + 11);
         
         // Termómetro
         const riskLevel = getRiskLevel('stopbang');
@@ -795,10 +795,10 @@ const QuestionnaireFlow = () => {
         pdf.setTextColor(255, 255, 255);
         pdf.setFontSize(14);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('HAD', margin + 5, headerY + 6);
+        pdf.text('SALUD MENTAL', margin + 5, headerY + 6);
         pdf.setFontSize(9);
         pdf.setFont('helvetica', 'normal');
-        pdf.text('Evaluación Psicológica', margin + 5, headerY + 11);
+        pdf.text('Escala de Ansiedad y Depresion', margin + 5, headerY + 11);
         
         // Termómetro
         const riskLevel = getRiskLevel('had');
@@ -865,10 +865,10 @@ const QuestionnaireFlow = () => {
         pdf.setTextColor(255, 255, 255);
         pdf.setFontSize(14);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('TFEQ-R18', margin + 5, headerY + 6);
+        pdf.text('ALIMENTACION', margin + 5, headerY + 6);
         pdf.setFontSize(9);
         pdf.setFont('helvetica', 'normal');
-        pdf.text('Evaluación de Comportamiento Alimentario', margin + 5, headerY + 11);
+        pdf.text('Comportamiento Alimentario', margin + 5, headerY + 11);
         
         // Termómetro
         const riskLevel = getRiskLevel('tfeq');
