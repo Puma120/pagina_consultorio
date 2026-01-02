@@ -11,6 +11,7 @@ const HandGripQuestionnaire = ({
   progressBar, 
   showResultScreen = true 
 }) => {
+  
   const [step, setStep] = useState('input'); // input, evaluating, result
   const [formData, setFormData] = useState({
     estatura: '',
